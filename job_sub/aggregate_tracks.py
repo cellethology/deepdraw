@@ -43,6 +43,7 @@ def aggregate_tracks(
             raise ValueError(f"No {result_name} files found in {path_dir} or its subdirectories.")
         dfs = pd.concat(dfs, ignore_index=True)
         dfs.to_csv(path_dir / "combined_tracks.csv", index=False)
+        print("Saved combined tracks to", path_dir / "combined_tracks.csv")
 
         
 
