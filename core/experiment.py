@@ -285,6 +285,7 @@ class ActiveLearningExperiment:
             if requires_model:
                 X_train = self.dataset.embeddings[self.train_indices, :]
                 y_train = self.dataset.labels[self.train_indices]
+                logger.info("Starting model training for round %d", round_num + 1)
                 try:
                     self.trainer.train(X_train=X_train, y_train=y_train)
                 except Exception as exc:
@@ -310,6 +311,9 @@ class ActiveLearningExperiment:
                     pool_predictions,
                 ) = self._get_round_predictions(requires_model)
 
+                logger.info(
+                    "Starting acquisition selection for round %d", round_num + 1
+                )
                 next_batch = self._select_next_batch()
             except Exception as exc:
                 logger.exception("Selection failed at round %d", round_num + 1)

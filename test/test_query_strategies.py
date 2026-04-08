@@ -2,6 +2,7 @@
 Unit tests for query strategy implementations.
 """
 
+import importlib
 from dataclasses import dataclass
 
 import numpy as np
@@ -41,6 +42,8 @@ class DummyExperiment:
         labels=None,
         trainer=None,
         log_likelihoods=None,
+        train_indices=None,
+        random_seed=0,
     ):
         self.unlabeled_indices = unlabeled_indices
         self.batch_size = batch_size
@@ -54,6 +57,32 @@ class DummyExperiment:
             np.zeros(len(unlabeled_indices), dtype=float)
         )
         self.all_log_likelihoods = log_likelihoods
+        self.train_indices = train_indices or []
+        self.random_seed = random_seed
+
+
+class _TrainerWithModel:
+    def __init__(self, model) -> None:
+        self._model = model
+
+    def get_model(self):
+        return self._model
+
+
+class _DummyPosteriorAcq:
+    def __init__(self, model) -> None:
+        self.model = model
+
+    def __call__(self, X):
+        posterior = self.model.posterior(X)
+        return posterior.mean.squeeze(-1)
+
+
+def _import_botorch_models():
+    pytest.importorskip("torch")
+    pytest.importorskip("botorch")
+    pytest.importorskip("gpytorch")
+    return importlib.import_module("core.botorch_models")
 
 
 class TestRandomStrategy:
@@ -176,3 +205,110 @@ class TestBoTorchAcquisition:
                 candidate_set=object(),
                 batch_size=2,
             )
+
+    def test_qlog_nei_accepts_linear_gp_model(self, monkeypatch):
+        torch = pytest.importorskip("torch")
+        pytest.importorskip("botorch")
+        botorch_models = _import_botorch_models()
+        monkeypatch.setattr(
+            botorch_models, "fit_gpytorch_mll", lambda *args, **kwargs: None
+        )
+
+        X = np.array([[0.0], [1.0], [2.0]], dtype=float)
+        y = np.array([0.0, 1.0, 0.5], dtype=float)
+        reg = botorch_models.BoTorchGPRegressor(kernel="linear")
+        reg.fit(X, y)
+
+        strategy = BoTorchAcquisition(
+            acquisition="qlog_nei", discrete_optimizer="greedy"
+        )
+        model = strategy._as_botorch_model(reg)
+        X_train = strategy._to_model_tensor(torch, model, X).squeeze(-2)
+        acq = strategy._build_acquisition(
+            torch=torch,
+            model=model,
+            best_f=float(y.max()),
+            train_X=X_train,
+            candidate_set=X_train,
+        )
+
+        values = acq(X_train[:2].unsqueeze(-2))
+        assert values.shape[0] == 2
+
+    def test_qlog_nei_accepts_rf_ensemble_model(self):
+        torch = pytest.importorskip("torch")
+        pytest.importorskip("botorch")
+        botorch_models = _import_botorch_models()
+
+        X = np.array([[0.0], [1.0], [2.0], [3.0]], dtype=float)
+        y = np.array([0.0, 1.0, 0.5, 1.5], dtype=float)
+        reg = botorch_models.BoTorchRandomForestEnsembleRegressor(
+            n_estimators=5,
+            max_depth=2,
+            random_state=0,
+        )
+        reg.fit(X, y)
+
+        strategy = BoTorchAcquisition(
+            acquisition="qlog_nei", discrete_optimizer="greedy"
+        )
+        model = strategy._as_botorch_model(reg)
+        X_train = strategy._to_model_tensor(torch, model, X).squeeze(-2)
+        acq = strategy._build_acquisition(
+            torch=torch,
+            model=model,
+            best_f=float(y.max()),
+            train_X=X_train,
+            candidate_set=X_train,
+        )
+
+        values = acq(X_train[:2].unsqueeze(-2))
+        assert values.shape[0] == 2
+
+    @pytest.mark.parametrize(
+        ("factory",), [("linear_gp",), ("bnn_gp",), ("rf_ensemble",)]
+    )
+    def test_botorch_models_work_with_selection_pipeline(self, monkeypatch, factory):
+        botorch_models = _import_botorch_models()
+        if factory in {"linear_gp", "bnn_gp"}:
+            monkeypatch.setattr(
+                botorch_models, "fit_gpytorch_mll", lambda *args, **kwargs: None
+            )
+
+        X = np.array([[0.0], [1.0], [2.0], [3.0], [4.0]], dtype=float)
+        y = np.array([0.1, 0.9, 0.2, 0.8, 0.3], dtype=float)
+        if factory == "linear_gp":
+            model = botorch_models.BoTorchGPRegressor(kernel="linear")
+        elif factory == "bnn_gp":
+            model = botorch_models.BoTorchGPRegressor(
+                kernel="infinite_width_bnn", ard=True
+            )
+        elif factory == "rf_ensemble":
+            model = botorch_models.BoTorchRandomForestEnsembleRegressor(
+                n_estimators=5,
+                max_depth=2,
+                random_state=0,
+            )
+        model.fit(X[:3], y[:3])
+
+        strategy = BoTorchAcquisition(
+            acquisition="qlog_nei", discrete_optimizer="greedy"
+        )
+        monkeypatch.setattr(
+            strategy,
+            "_build_acquisition",
+            lambda torch, model, best_f, train_X, candidate_set: _DummyPosteriorAcq(
+                model
+            ),
+        )
+        exp = DummyExperiment(
+            unlabeled_indices=[3, 4],
+            batch_size=1,
+            embeddings=X,
+            labels=y,
+            trainer=_TrainerWithModel(model),
+            train_indices=[0, 1, 2],
+        )
+
+        selected = strategy.select(exp)
+        assert selected in ([3], [4])

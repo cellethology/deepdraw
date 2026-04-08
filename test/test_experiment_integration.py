@@ -101,6 +101,28 @@ class TestActiveLearningExperiment:
         # Initial training set plus one entry per round
         assert len(experiment.round_tracker.rounds) == 1 + 3
 
+    def test_run_experiment_logs_training_and_acquisition_boundaries(
+        self, tmp_path, caplog
+    ):
+        """Each model-based round logs training and acquisition boundaries."""
+        emb_path, csv_path = self.create_dataset(tmp_path, n_samples=20)
+        experiment = self._build_experiment(
+            embeddings_path=emb_path,
+            metadata_path=csv_path,
+            query_strategy=TopPredictions(),
+            starting_batch_size=5,
+            batch_size=3,
+            initial_selection_strategy=RandomInitialSelection(
+                seed=42, starting_batch_size=5
+            ),
+        )
+
+        with caplog.at_level("INFO"):
+            experiment.run_experiment(max_rounds=1)
+
+        assert "Starting model training for round 1" in caplog.text
+        assert "Starting acquisition selection for round 1" in caplog.text
+
     def test_save_results(self, tmp_path):
         """Saving results writes results, custom metrics, and selected variants."""
         emb_path, csv_path = self.create_dataset(tmp_path, n_samples=20)

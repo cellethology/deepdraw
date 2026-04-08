@@ -1,133 +1,133 @@
 datasets:
 - name: base_AD_SynTF_A_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_AD_SynTF_A_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_AD_SynTF_A_part1.0_indices.txt
 - name: base_AD_SynTF_A_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_AD_SynTF_A_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_AD_SynTF_A_part2.0_indices.txt
 - name: base_AD_SynTF_A_part3.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_AD_SynTF_A_part3.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_AD_SynTF_A_part3.0_indices.txt
 - name: base_AD_SynTF_B_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_AD_SynTF_B_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_AD_SynTF_B_part1.0_indices.txt
 - name: base_AD_SynTF_B_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_AD_SynTF_B_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_AD_SynTF_B_part2.0_indices.txt
 - name: base_Binding_site_pattern_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Binding_site_pattern_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Binding_site_pattern_part1.0_indices.txt
 - name: base_Binding_site_pattern_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Binding_site_pattern_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Binding_site_pattern_part2.0_indices.txt
 - name: base_Binding_site_pattern_part3.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Binding_site_pattern_part3.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Binding_site_pattern_part3.0_indices.txt
 - name: base_Binding_site_pattern_part4.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Binding_site_pattern_part4.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Binding_site_pattern_part4.0_indices.txt
 - name: base_Core_prom_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Core_prom_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Core_prom_part1.0_indices.txt
 - name: base_Core_prom_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Core_prom_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Core_prom_part2.0_indices.txt
 - name: base_IDR_SynTF_A_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_IDR_SynTF_A_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_IDR_SynTF_A_part1.0_indices.txt
 - name: base_IDR_SynTF_A_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_IDR_SynTF_A_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_IDR_SynTF_A_part2.0_indices.txt
 - name: base_IDR_SynTF_B_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_IDR_SynTF_B_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_IDR_SynTF_B_part1.0_indices.txt
 - name: base_IDR_SynTF_B_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_IDR_SynTF_B_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_IDR_SynTF_B_part2.0_indices.txt
 - name: base_No_of_Binding_sites_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_No_of_Binding_sites_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_No_of_Binding_sites_part1.0_indices.txt
 - name: base_No_of_Binding_sites_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_No_of_Binding_sites_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_No_of_Binding_sites_part2.0_indices.txt
 - name: base_No_of_Binding_sites_part3.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_No_of_Binding_sites_part3.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_No_of_Binding_sites_part3.0_indices.txt
 - name: base_Orientation_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Orientation_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Orientation_part1.0_indices.txt
 - name: base_Prom_SynTF_A_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Prom_SynTF_A_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Prom_SynTF_A_part1.0_indices.txt
 - name: base_Prom_SynTF_A_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Prom_SynTF_A_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Prom_SynTF_A_part2.0_indices.txt
 - name: base_Prom_SynTF_A_part3.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Prom_SynTF_A_part3.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Prom_SynTF_A_part3.0_indices.txt
 - name: base_Prom_SynTF_B_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Prom_SynTF_B_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Prom_SynTF_B_part1.0_indices.txt
 - name: base_Prom_SynTF_B_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Prom_SynTF_B_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Prom_SynTF_B_part2.0_indices.txt
 - name: base_Prom_SynTF_B_part3.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Prom_SynTF_B_part3.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Prom_SynTF_B_part3.0_indices.txt
 - name: base_ZF_Affinity_SynTF_A_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_A_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_A_part1.0_indices.txt
 - name: base_ZF_Affinity_SynTF_A_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_A_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_A_part2.0_indices.txt
 - name: base_ZF_Affinity_SynTF_A_part3.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_A_part3.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_A_part3.0_indices.txt
 - name: base_ZF_Affinity_SynTF_A_part4.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_A_part4.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_A_part4.0_indices.txt
 - name: base_ZF_Affinity_SynTF_B_part1.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_B_part1.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_B_part1.0_indices.txt
 - name: base_ZF_Affinity_SynTF_B_part2.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_B_part2.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_B_part2.0_indices.txt
 - name: base_ZF_Affinity_SynTF_B_part3.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_B_part3.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_B_part3.0_indices.txt
 - name: base_ZF_Affinity_SynTF_B_part4.0_indices
   metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
-  embedding_dir: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_base
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_B_part4.0_indices
   subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_B_part4.0_indices.txt

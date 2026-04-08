@@ -45,12 +45,21 @@ def _override_sort_key(override):
 
 
 def mannwhitney_p(
-    values, baseline_values, alternative="two-sided", return_effect=False
+    values,
+    baseline_values,
+    alternative="two-sided",
+    return_effect=False,
+    method="auto",
 ):
     if len(values) == 0 or len(baseline_values) == 0:
         return (np.nan, np.nan) if return_effect else np.nan
     try:
-        res = stats.mannwhitneyu(values, baseline_values, alternative=alternative)
+        res = stats.mannwhitneyu(
+            values,
+            baseline_values,
+            alternative=alternative,
+            method=method,
+        )
         p_value = float(res.pvalue)
     except ValueError:
         return (np.nan, np.nan) if return_effect else np.nan

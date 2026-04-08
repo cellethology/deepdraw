@@ -10,12 +10,15 @@ import numpy as np
 import torch
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
+from botorch.models.ensemble import EnsembleModel
+from botorch.models.kernels.infinite_width_bnn import InfiniteWidthBNNKernel
 from gpytorch.constraints import GreaterThan
-from gpytorch.kernels import MaternKernel, RBFKernel, ScaleKernel
+from gpytorch.kernels import LinearKernel, MaternKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.priors import GammaPrior
 from sklearn.base import RegressorMixin
+from sklearn.ensemble import RandomForestRegressor
 
 
 def _get_default_outcome_transform():
@@ -48,6 +51,35 @@ def _resolve_rrp_model_class():
                 "BoTorch install. Upgrade botorch to a version that provides "
                 "robust_relevance_pursuit_model."
             ) from nested_exc
+
+
+class _RandomForestEnsembleModel(EnsembleModel):
+    """
+    BoTorch ensemble wrapper around fitted sklearn tree ensembles.
+    """
+
+    def __init__(
+        self,
+        estimators: list[Any],
+        train_X: torch.Tensor,
+        weights: torch.Tensor | None = None,
+    ) -> None:
+        super().__init__(weights=weights)
+        self.estimators = list(estimators)
+        self.train_inputs = [train_X]
+        self._num_outputs = 1
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        batch_shape = X.shape[:-2]
+        q = X.shape[-2]
+        flat_X = X.detach().cpu().reshape(-1, X.shape[-1]).numpy()
+        member_values: list[torch.Tensor] = []
+        for estimator in self.estimators:
+            pred = estimator.predict(flat_X)
+            pred_tensor = torch.as_tensor(pred, device=X.device, dtype=X.dtype)
+            pred_tensor = pred_tensor.reshape(*batch_shape, q, 1)
+            member_values.append(pred_tensor)
+        return torch.stack(member_values, dim=len(batch_shape))
 
 
 class _BoTorchBaseRegressor(RegressorMixin):
@@ -118,23 +150,40 @@ class _BoTorchBaseRegressor(RegressorMixin):
             return torch.float
         raise ValueError(f"Unsupported dtype '{self.dtype}'.")
 
-    def _build_kernel(self, X_tensor: torch.Tensor) -> ScaleKernel:
+    def _build_kernel(self, X_tensor: torch.Tensor):
         ard_dims = X_tensor.shape[-1] if self.ard else None
         kernel_key = str(self.kernel).lower()
         if kernel_key in {"rbf", "se", "squared_exponential"}:
             base_kernel = RBFKernel(ard_num_dims=ard_dims)
+            return ScaleKernel(base_kernel)
+        elif kernel_key in {"linear"}:
+            # LinearKernel already has its own variance parameter, so wrapping it
+            # again in ScaleKernel adds a redundant output scale and makes fitting
+            # less stable on tiny high-dimensional batches.
+            return LinearKernel(ard_num_dims=ard_dims)
+        elif kernel_key in {
+            "infinite_width_bnn",
+            "infinitewidthbnn",
+            "iwbnn",
+            "bnn",
+        }:
+            base_kernel = InfiniteWidthBNNKernel()
+            return ScaleKernel(base_kernel)
         elif kernel_key in {"matern_12", "matern12", "matern_1/2", "matern-1/2"}:
             base_kernel = MaternKernel(nu=0.5, ard_num_dims=ard_dims)
+            return ScaleKernel(base_kernel)
         elif kernel_key in {"matern_32", "matern32", "matern_3/2", "matern-3/2"}:
             base_kernel = MaternKernel(nu=1.5, ard_num_dims=ard_dims)
+            return ScaleKernel(base_kernel)
         elif kernel_key in {"matern_52", "matern52", "matern_5/2", "matern-5/2"}:
             base_kernel = MaternKernel(nu=2.5, ard_num_dims=ard_dims)
+            return ScaleKernel(base_kernel)
         else:
             raise ValueError(
                 "Unsupported kernel "
-                f"'{self.kernel}'. Use rbf, matern_12, matern_32, or matern_52."
+                f"'{self.kernel}'. Use linear, infinite_width_bnn, rbf, "
+                "matern_12, matern_32, or matern_52."
             )
-        return ScaleKernel(base_kernel)
 
     def _to_tensor(self, array: np.ndarray) -> torch.Tensor:
         device = self._resolve_device()
@@ -299,5 +348,72 @@ class BoTorchRobustRelevancePursuitGPRegressor(_BoTorchBaseRegressor):
         self.model_.train()
         mll = ExactMarginalLogLikelihood(self.model_.likelihood, self.model_)
         self._fit_mll(mll)
+        self.model_.eval()
+        return self
+
+
+class BoTorchRandomForestEnsembleRegressor(_BoTorchBaseRegressor):
+    """
+    Sklearn-compatible random forest with a BoTorch ensemble posterior.
+    """
+
+    def __init__(
+        self,
+        n_estimators: int = 100,
+        max_depth: int | None = None,
+        min_samples_split: int = 2,
+        min_samples_leaf: int = 1,
+        max_features: str | int | float | None = 1.0,
+        bootstrap: bool = True,
+        random_state: int | None = None,
+        n_jobs: int | None = None,
+        dtype: str = "float64",
+    ) -> None:
+        super().__init__(device="cpu", dtype=dtype, ard=False, kernel="rbf")
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.max_features = max_features
+        self.bootstrap = bootstrap
+        self.random_state = random_state
+        self.n_jobs = n_jobs
+        self.estimator_: RandomForestRegressor | None = None
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        return {
+            "n_estimators": self.n_estimators,
+            "max_depth": self.max_depth,
+            "min_samples_split": self.min_samples_split,
+            "min_samples_leaf": self.min_samples_leaf,
+            "max_features": self.max_features,
+            "bootstrap": self.bootstrap,
+            "random_state": self.random_state,
+            "n_jobs": self.n_jobs,
+            "dtype": self.dtype,
+        }
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> BoTorchRandomForestEnsembleRegressor:
+        X_np = np.asarray(X)
+        y_np = np.asarray(y)
+        estimator = RandomForestRegressor(
+            n_estimators=self.n_estimators,
+            max_depth=self.max_depth,
+            min_samples_split=self.min_samples_split,
+            min_samples_leaf=self.min_samples_leaf,
+            max_features=self.max_features,
+            bootstrap=self.bootstrap,
+            random_state=self.random_state,
+            n_jobs=self.n_jobs,
+        )
+        estimator.fit(X_np, y_np)
+        self.estimator_ = estimator
+        train_X = torch.as_tensor(
+            X_np, device=torch.device("cpu"), dtype=self._resolve_dtype()
+        )
+        self.model_ = _RandomForestEnsembleModel(
+            estimators=list(estimator.estimators_),
+            train_X=train_X,
+        )
         self.model_.eval()
         return self

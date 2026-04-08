@@ -1,7 +1,7 @@
 defaults:
   - predictor: botorch_gp
   - query_strategy: botorch_qlog_nei
-  - initial_selection_strategy: core_set
+  - initial_selection_strategy: probcover_euclidean
   - transforms@feature_transforms: standardize
   - transforms@target_transforms: log_standardize
   - _self_
@@ -9,20 +9,20 @@ defaults:
   - override hydra/launcher: submitit_slurm
 
 # data paths
-datasets_file: /storage2/wangzitongLab/share/xuyin_tmp/166k_npz_pca_compare.yaml
+datasets_file: datasets/166k_datasets.yaml
 single_array_across_datasets: true
 dataset_index: ${env:AL_DATASET_INDEX,0}
 dataset_name: ${dataset_field:${datasets_file},${dataset_index},name}
 metadata_path: ${dataset_field:${datasets_file},${dataset_index},metadata_path}
 embedding_dir: ${dataset_field:${datasets_file},${dataset_index},embedding_dir}
-embedding_model: enformer_evo2_concat
+embedding_model: 1m_alphagenome_1bp_embeddings_kneedle
 embedding_path: ${embedding_dir}/${embedding_model}.npz
 subset_ids_path: ${dataset_field:${datasets_file},${dataset_index},subset_ids_path,null}
 # base directory for Hydra run outputs (can be overridden in config/CLI)
-results_root_dir: /home/wangzitongLab/liuxuyin/multibranch_2/gene_circuit_design/al_results
+results_root_dir: /storage2/wangzitongLab/share/deepdraw_opt/jerry
 
 # number of random seeds to run for each active learning experiment
-num_seeds_per_job: 20
+num_seeds_per_job: 30
 seed_start: 0
 parallelize_seeds: true
 
@@ -47,12 +47,12 @@ hydra:
     subdir: ${dataset_name}/${override_values:${hydra.job.override_dirname},dataset_index|single_array_across_datasets|al_settings.seed,default}
   sweeper: # multirun mode sweeps over these parameters
     params:
-      initial_selection_strategy: core_set
-      embedding_model: 166k_alphagenome_1bp_embeddingkneedle
-      query_strategy: botorch_qlog_nei,botorch_mes
+      initial_selection_strategy: probcover_euclidean, core_set, random
+      embedding_model: gLM2_166k_kneedle
+      query_strategy: botorch_qlog_nei, topk, botorch_q_ucb
       predictor: botorch_gp
   launcher:
-    timeout_min: 360
+    timeout_min: 720
     # everything below is used only for submitting jobs to the cluster
     partition: intel-sc3,wzt_20250411 # no spacing between names
     cpus_per_task: 1

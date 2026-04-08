@@ -23,6 +23,12 @@ class _DummyPosterior:
         self.mean = mean
         self.variance = variance
 
+    def rsample(self, sample_shape: torch.Size | None = None) -> torch.Tensor:
+        if sample_shape is None:
+            sample_shape = torch.Size([1])
+        base = self.mean.expand(sample_shape + self.mean.shape)
+        return base
+
 
 class _DummyRRPModel:
     def __init__(self, X: torch.Tensor, y: torch.Tensor, **kwargs) -> None:
@@ -56,6 +62,15 @@ def test_botorch_gp_kernel_selection_and_dtype():
     kernel = reg._build_kernel(X_tensor)
     assert kernel.base_kernel.__class__.__name__ == "MaternKernel"
     assert kernel.base_kernel.nu == pytest.approx(1.5)
+
+    reg.kernel = "linear"
+    kernel = reg._build_kernel(X_tensor)
+    assert kernel.__class__.__name__ == "LinearKernel"
+    assert kernel.ard_num_dims == 3
+
+    reg.kernel = "infinite_width_bnn"
+    kernel = reg._build_kernel(X_tensor)
+    assert kernel.base_kernel.__class__.__name__ == "InfiniteWidthBNNKernel"
 
 
 def test_botorch_gp_kernel_invalid_raises():
@@ -125,6 +140,27 @@ def test_rrp_regressor_fit_uses_custom_model(monkeypatch):
     assert mean.shape == (len(X),)
     assert std.shape == (len(X),)
     assert np.all(std > 0.0)
+
+
+def test_rf_ensemble_predict_with_std():
+    botorch_models = _import_botorch_models()
+    X = np.array([[0.0], [1.0], [2.0], [3.0]], dtype=float)
+    y = np.array([0.0, 1.0, 0.5, 1.5], dtype=float)
+    reg = botorch_models.BoTorchRandomForestEnsembleRegressor(
+        n_estimators=5,
+        max_depth=2,
+        random_state=0,
+    )
+    reg.fit(X, y)
+
+    mean, std = reg.predict_with_std(X)
+    assert mean.shape == (len(X),)
+    assert std.shape == (len(X),)
+    assert np.all(std >= 0.0)
+
+    posterior = reg.posterior(X)
+    samples = posterior.rsample(sample_shape=torch.Size([3]))
+    assert samples.shape == (3, len(X), 1)
 
 
 def test_unfitted_model_raises():
