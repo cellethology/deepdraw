@@ -1,0 +1,5 @@
+datasets:
+- name: 166k_filtered
+  metadata_path: /storage/wangzitongLab_tmp/share/Rai_2024_166k/166k_Library_CLASSIC_Data.csv
+  embedding_dir: /storage/wangzitongLab_tmp/share/Rai_2024_166k
+  subset_ids_path: /storage/wangzitongLab_tmp/share/Rai_2024_166k/166k_filtered_indices.txt

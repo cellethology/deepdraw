@@ -5,6 +5,9 @@ This script implements an active learning approach to design circuit with specif
 """
 
 import json
+import logging
+import traceback
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +16,8 @@ from hydra.utils import instantiate
 from omegaconf import ListConfig, OmegaConf
 
 from core.experiment import ActiveLearningExperiment
+
+logger = logging.getLogger(__name__)
 
 
 def run_one_experiment(
@@ -28,64 +33,84 @@ def run_one_experiment(
         Dictionary containing the results summary
     """
 
-    # Instantiate components
-    query_strategy = instantiate(cfg.query_strategy)
-    predictor = instantiate(cfg.predictor)
-    initial_selection_strategy = instantiate(cfg.initial_selection_strategy)
-    feature_transforms = make_steps(cfg.feature_transforms.steps)
-    target_transforms = make_steps(cfg.target_transforms.steps)
-
     # Extract active learning settings
-    embeddings_path = cfg.embedding_path
-    dataset_name = getattr(cfg, "dataset_name", "")
-    embedding_model_name = getattr(cfg, "embedding_model", "")
-    metadata_path = cfg.metadata_path
-    subset_ids_path = getattr(cfg, "subset_ids_path", None)
     al_settings = cfg.al_settings
-    batch_size = al_settings.get("batch_size")
-    starting_batch_size = al_settings.get("starting_batch_size", batch_size)
-    max_rounds = al_settings.get("max_rounds")
     output_dir = al_settings.get("output_dir", None)
-    label_key = al_settings.get("label_key", None)
-    seed = al_settings.get("seed", 0)
-
-    # Check embedding path matches embedding model
-    if not embeddings_path.endswith(f"{embedding_model_name}.npz"):
-        raise ValueError(
-            f"Embedding path {embeddings_path} does not match embedding model {embedding_model_name}"
-        )
-
-    # Create experiment
-    experiment = ActiveLearningExperiment(
-        embeddings_path=embeddings_path,
-        metadata_path=metadata_path,
-        query_strategy=query_strategy,
-        predictor=predictor,
-        starting_batch_size=starting_batch_size,
-        batch_size=batch_size,
-        random_seed=seed,
-        feature_transforms=feature_transforms,
-        target_transforms=target_transforms,
-        label_key=label_key,
-        initial_selection_strategy=initial_selection_strategy,
-        subset_ids_path=subset_ids_path,
-    )
-
-    # Resolve and create output directory
     if output_dir is None:
         raise ValueError("al_settings.output_dir must be provided in the config.")
     output_dir_path = Path(output_dir)
     output_dir_path.mkdir(parents=True, exist_ok=True)
+    dataset_name = getattr(cfg, "dataset_name", "")
+    embedding_model_name = getattr(cfg, "embedding_model", "")
+    seed = al_settings.get("seed", 0)
+    logger.info(
+        "RUN_CONTEXT dataset_name=%s seed=%s output_dir=%s",
+        dataset_name,
+        seed,
+        output_dir_path,
+    )
 
-    # Run experiment
-    experiment.run_experiment(max_rounds=max_rounds)
+    try:
+        # Instantiate components
+        query_strategy = instantiate(cfg.query_strategy)
+        predictor = instantiate(cfg.predictor)
+        initial_selection_strategy = instantiate(cfg.initial_selection_strategy)
+        feature_transforms = make_steps(cfg.feature_transforms.steps)
+        target_transforms = make_steps(cfg.target_transforms.steps)
 
-    # Save individual results
-    experiment.save_results(output_path=output_dir_path / "results.csv")
+        # Extract active learning settings
+        embeddings_path = cfg.embedding_path
+        metadata_path = cfg.metadata_path
+        subset_ids_path = getattr(cfg, "subset_ids_path", None)
+        batch_size = al_settings.get("batch_size")
+        starting_batch_size = al_settings.get("starting_batch_size", batch_size)
+        max_rounds = al_settings.get("max_rounds")
+        label_key = al_settings.get("label_key", None)
 
-    # Compute summary metrics
-    summary_metrics = experiment.round_tracker.compute_summary_metrics()
-    summary_metrics_history = experiment.round_tracker.compute_summary_metrics_history()
+        # Check embedding path matches embedding model
+        if not embeddings_path.endswith(f"{embedding_model_name}.npz"):
+            raise ValueError(
+                f"Embedding path {embeddings_path} does not match embedding model {embedding_model_name}"
+            )
+
+        # Create experiment
+        experiment = ActiveLearningExperiment(
+            embeddings_path=embeddings_path,
+            metadata_path=metadata_path,
+            query_strategy=query_strategy,
+            predictor=predictor,
+            starting_batch_size=starting_batch_size,
+            batch_size=batch_size,
+            random_seed=seed,
+            feature_transforms=feature_transforms,
+            target_transforms=target_transforms,
+            label_key=label_key,
+            initial_selection_strategy=initial_selection_strategy,
+            subset_ids_path=subset_ids_path,
+        )
+
+        # Run experiment
+        experiment.run_experiment(max_rounds=max_rounds)
+
+        # Save individual results
+        experiment.save_results(output_path=output_dir_path / "results.csv")
+
+        # Compute summary metrics
+        summary_metrics = experiment.round_tracker.compute_summary_metrics()
+        summary_metrics_history = (
+            experiment.round_tracker.compute_summary_metrics_history()
+        )
+    except Exception:
+        error_path = output_dir_path / "error.txt"
+        error_details = [
+            f"timestamp: {datetime.now().isoformat(timespec='seconds')}",
+            f"dataset_name: {dataset_name}",
+            f"seed: {seed}",
+            "",
+            traceback.format_exc(),
+        ]
+        error_path.write_text("\n".join(error_details))
+        raise
 
     # Summarize results
     feature_transforms_names = (
@@ -124,6 +149,9 @@ def run_one_experiment(
         "max_train_spearman": summary_metrics["max_train_spearman"],
         "max_extreme_value_auc": summary_metrics["max_extreme_value_auc"],
         "summary_by_round": summary_metrics_history,
+        "completed_rounds": len(experiment.round_tracker.rounds),
+        "stopped_early": experiment.failure_info is not None,
+        "failure_info": experiment.failure_info,
         "hydra_overrides": overrides,
     }
 

@@ -54,8 +54,7 @@ run-active-learning = "run_experiments:main"
 packages = ["utils"]
 
 [tool.uv]
-index-url = "https://mirrors.westlake.edu.cn/pypi/simple"
-# index-url = "https://mirrors.aliyun.com/pypi/simple/"
+index-url = "https://pypi.org/simple"
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

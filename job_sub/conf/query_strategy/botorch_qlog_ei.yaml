@@ -1,5 +1,4 @@
 _target_: core.query_strategies.BoTorchAcquisition
-acquisition: ucb
-beta: 0.2
+acquisition: qlog_ei
 maximize: true
-discrete_optimizer: greedy
+discrete_optimizer: exact

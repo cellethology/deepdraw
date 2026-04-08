@@ -1,5 +1,5 @@
 _target_: core.query_strategies.BoTorchAcquisition
 acquisition: ucb
-beta: 0.2
+beta: 0.5
 maximize: true
 discrete_optimizer: greedy

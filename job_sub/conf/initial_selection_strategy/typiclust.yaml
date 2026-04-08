@@ -1,0 +1,9 @@
+_target_: core.initial_selection_strategies.TypiClustInitialSelection
+seed: ${al_settings.seed}
+starting_batch_size: ${al_settings.starting_batch_size}
+metric: euclidean
+min_cluster_size: 5
+max_num_clusters: 500
+k_nn: 20
+mini_batch_threshold: 50
+mini_batch_size: 5000

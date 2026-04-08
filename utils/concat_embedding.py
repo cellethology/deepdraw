@@ -2,12 +2,14 @@
 """
 Concatenate two embedding NPZ files by matching sample ids.
 
-Each NPZ must contain:
-  - embeddings: array with shape (n_samples, n_features)
-  - ids: array with shape (n_samples,)
-
-Embeddings are L2-normalized before concatenation, and PCA is applied after
+By default, embeddings are concatenated as-is. Optional L2 normalization can be
+enabled before concatenation, and optional PCA can be applied after
 concatenation to reach a target explained variance ratio.
+
+Usage examples:
+  python utils/concat_embedding.py a.npz b.npz out.npz
+  python utils/concat_embedding.py a.npz b.npz out.npz --normalize
+  python utils/concat_embedding.py a.npz b.npz out.npz --normalize --pca-var 0.95
 """
 
 from __future__ import annotations
@@ -73,8 +75,8 @@ def concat_embeddings(
     path_a: Path,
     path_b: Path,
     output_path: Path,
-    normalize: bool = True,
-    pca_variance: float | None = 0.95,
+    normalize: bool = False,
+    pca_variance: float | None = None,
 ) -> None:
     emb_a, ids_a = _load_npz(path_a)
     emb_b, ids_b = _load_npz(path_b)
@@ -119,15 +121,15 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("embedding_b", type=Path, help="Path to second NPZ file.")
     parser.add_argument("output", type=Path, help="Path for output NPZ file.")
     parser.add_argument(
-        "--no-normalize",
+        "--normalize",
         action="store_true",
-        help="Disable L2 normalization before concatenation.",
+        help="Enable L2 normalization before concatenation.",
     )
     parser.add_argument(
         "--pca-var",
         type=float,
-        default=0.95,
-        help="Target explained variance ratio for PCA (default: 0.95).",
+        default=None,
+        help="Target explained variance ratio for PCA (e.g., 0.95).",
     )
     return parser.parse_args()
 
@@ -138,7 +140,7 @@ def main() -> None:
         args.embedding_a,
         args.embedding_b,
         args.output,
-        normalize=not args.no_normalize,
+        normalize=args.normalize,
         pca_variance=args.pca_var,
     )
 

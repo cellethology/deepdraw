@@ -108,7 +108,7 @@ outputs
 logs_experiments
 log_test/*
 logs_test/*
-slurm_logs/*
+slurm_logs/
 # job_sub/
 
 
@@ -118,3 +118,7 @@ slurm_logs/*
 # local data
 **/test_local.yaml
 **/local_166k.yaml
+job_sub/datasets/*_local
+job_sub/datasets/*_local.*
+job_sub/datasets/**/*_local
+job_sub/datasets/**/*_local.*

@@ -1,7 +1,7 @@
-# BoTorch GP regressor (SingleTaskGP wrapper)
+# BoTorch GP regressor with an InfiniteWidthBNN kernel
 _target_: core.botorch_models.BoTorchGPRegressor
 device: auto
 dtype: float64
 ard: true
-kernel: rbf
+kernel: infinite_width_bnn
 noise_constraint: 1e-4

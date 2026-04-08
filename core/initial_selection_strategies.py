@@ -234,6 +234,150 @@ class DensityWeightedCoreSetInitialSelection(CoreSetInitialSelection):
         return 1.0 + self.density_scale * inv_density
 
 
+class TypiClustInitialSelection(InitialSelectionStrategy):
+    """Select initial samples via TypiClust (cluster + local typicality)."""
+
+    def __init__(
+        self,
+        seed: int,
+        starting_batch_size: int,
+        metric: str = "euclidean",
+        min_cluster_size: int = 5,
+        max_num_clusters: int = 500,
+        k_nn: int = 20,
+        mini_batch_threshold: int = 50,
+        mini_batch_size: int = 5000,
+    ) -> None:
+        super().__init__("TYPICLUST", starting_batch_size=starting_batch_size)
+        self.seed = seed
+        self.metric = metric
+        self.min_cluster_size = max(1, min_cluster_size)
+        self.max_num_clusters = max(1, max_num_clusters)
+        self.k_nn = max(1, k_nn)
+        self.mini_batch_threshold = max(2, mini_batch_threshold)
+        self.mini_batch_size = max(10, mini_batch_size)
+        self._rng = np.random.default_rng(seed)
+
+    def select(self, dataset: Dataset) -> list[int]:
+        embeddings = np.asarray(dataset.embeddings)
+        num_samples = embeddings.shape[0]
+        target = min(self.starting_batch_size, num_samples)
+        if target == 0:
+            return []
+
+        num_clusters = min(target, self.max_num_clusters, num_samples)
+        labels = self._cluster_embeddings(embeddings, num_clusters)
+        cluster_order = self._build_cluster_order(labels)
+
+        available = np.ones(num_samples, dtype=bool)
+        selected: list[int] = []
+
+        for i in range(target):
+            cluster = self._next_non_empty_cluster(
+                labels=labels,
+                available=available,
+                cluster_order=cluster_order,
+                start_offset=i,
+            )
+            if cluster is None:
+                break
+
+            cluster_indices = np.flatnonzero((labels == cluster) & available)
+            cluster_feats = embeddings[cluster_indices]
+            num_neighbors = min(self.k_nn, max(1, len(cluster_indices) // 2))
+            typicality = self._calculate_typicality(cluster_feats, num_neighbors)
+            chosen_idx = int(cluster_indices[int(np.argmax(typicality))])
+            selected.append(chosen_idx)
+            available[chosen_idx] = False
+
+        if len(selected) < target:
+            selected.extend(
+                self._sample_fallback_indices(available, target - len(selected))
+            )
+
+        labels_selected = dataset.labels[selected]
+        logger.info(
+            "%s_INITIAL: selected %d sequences. Labels: [%s]",
+            self.name.upper(),
+            len(selected),
+            ", ".join(f"{val:.3f}" for val in labels_selected),
+        )
+        return selected
+
+    def _cluster_embeddings(
+        self, embeddings: np.ndarray, num_clusters: int
+    ) -> np.ndarray:
+        if num_clusters <= self.mini_batch_threshold:
+            model = KMeans(n_clusters=num_clusters, random_state=self.seed, n_init=10)
+            return model.fit_predict(embeddings)
+        model = MiniBatchKMeans(
+            n_clusters=num_clusters,
+            random_state=self.seed,
+            batch_size=self.mini_batch_size,
+            n_init=3,
+        )
+        return model.fit_predict(embeddings)
+
+    def _build_cluster_order(self, labels: np.ndarray) -> list[int]:
+        cluster_ids, cluster_sizes = np.unique(labels, return_counts=True)
+        cluster_stats = sorted(
+            zip(cluster_ids.tolist(), cluster_sizes.tolist(), strict=False),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        filtered = [
+            int(cluster_id)
+            for cluster_id, cluster_size in cluster_stats
+            if cluster_size > self.min_cluster_size
+        ]
+        if filtered:
+            return filtered
+        return [int(cluster_id) for cluster_id, _ in cluster_stats]
+
+    def _next_non_empty_cluster(
+        self,
+        labels: np.ndarray,
+        available: np.ndarray,
+        cluster_order: list[int],
+        start_offset: int,
+    ) -> int | None:
+        if not cluster_order:
+            return None
+        n_clusters = len(cluster_order)
+        for j in range(n_clusters):
+            cluster = cluster_order[(start_offset + j) % n_clusters]
+            if np.any((labels == cluster) & available):
+                return cluster
+        return None
+
+    def _calculate_typicality(
+        self, features: np.ndarray, num_neighbors: int
+    ) -> np.ndarray:
+        num_samples = features.shape[0]
+        if num_samples == 0:
+            return np.array([], dtype=float)
+        if num_samples == 1:
+            return np.array([1.0], dtype=float)
+
+        n_neighbors = min(num_samples, max(2, num_neighbors + 1))
+        nn = NearestNeighbors(n_neighbors=n_neighbors, metric=self.metric)
+        nn.fit(features)
+        distances, _ = nn.kneighbors(features)
+        mean_distance = distances[:, 1:].mean(axis=1)
+        return 1.0 / (mean_distance + 1e-5)
+
+    def _sample_fallback_indices(self, available: np.ndarray, count: int) -> list[int]:
+        if count <= 0:
+            return []
+        remaining = np.flatnonzero(available)
+        if remaining.size == 0:
+            return []
+        if remaining.size <= count:
+            return remaining.tolist()
+        sampled = self._rng.choice(remaining, size=count, replace=False)
+        return sampled.tolist()
+
+
 class ProbCoverInitialSelection(InitialSelectionStrategy):
     """Select initial samples via ProbCover (delta-neighborhood cover)."""
 

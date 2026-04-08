@@ -1,0 +1,7 @@
+# job_sub/conf/transforms/variance_threshold_standardize.yaml
+steps:
+  - id: variance_threshold
+    _target_: sklearn.feature_selection.VarianceThreshold
+    threshold: 1.0e-12
+  - id: scaler
+    _target_: sklearn.preprocessing.StandardScaler

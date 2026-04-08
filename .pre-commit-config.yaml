@@ -2,7 +2,7 @@
 # See https://pre-commit.com for more information
 
 default_language_version:
-  python: python3.10
+  python: python3
 
 repos:
   # Ruff for linting and formatting

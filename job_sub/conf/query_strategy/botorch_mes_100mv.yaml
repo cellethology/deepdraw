@@ -1,7 +1,0 @@
-_target_: core.query_strategies.BoTorchAcquisition
-acquisition: mes
-maximize: true
-seed: null
-num_mv_samples: 100
-max_value_sampling: gumbel
-discrete_optimizer: greedy

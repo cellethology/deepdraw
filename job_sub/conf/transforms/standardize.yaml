@@ -2,3 +2,4 @@
 steps:
   - id: scaler
     _target_: sklearn.preprocessing.StandardScaler
+    copy: false

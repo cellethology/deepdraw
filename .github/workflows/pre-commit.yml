@@ -46,22 +46,29 @@ jobs:
             ${{ runner.os }}-uv-precommit-
 
       - name: Install dependencies
+        env:
+          UV_INDEX_URL: https://pypi.org/simple
         run: |
           uv sync --python 3.10 --frozen
 
       - name: Install pre-commit hooks
+        env:
+          UV_INDEX_URL: https://pypi.org/simple
         run: |
           uv run pre-commit install-hooks
 
       - name: Run pre-commit hooks
         env:
           SKIP: pytest
+          UV_INDEX_URL: https://pypi.org/simple
         run: |
           uv run pre-commit run --all-files --verbose
 
       - name: Run pytest with coverage
+        env:
+          UV_INDEX_URL: https://pypi.org/simple
         run: |
-          uv run pytest --cov=experiments --cov-report=xml
+          uv run pytest --cov=core --cov=job_sub --cov=utils --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

@@ -1,0 +1,9 @@
+# BoTorch Robust Relevance Pursuit GP regressor
+_target_: core.botorch_models.BoTorchRobustRelevancePursuitGPRegressor
+device: auto
+dtype: float64
+ard: true
+kernel: rbf
+convex_parameterization: true
+prior_mean_of_support: null
+cache_model_trace: false

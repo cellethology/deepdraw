@@ -126,3 +126,45 @@ def test_make_steps_builds_pipeline(monkeypatch):
     name, transformer = steps[0]
     assert name == "dummy"
     assert isinstance(transformer, DummyTransformer)
+
+
+def test_run_single_experiment_logs_dataset_name(tmp_path, monkeypatch, caplog):
+    cfg = _build_cfg(tmp_path)
+    cfg.dataset_name = "demo_dataset"
+    _patch_make_steps(monkeypatch)
+
+    with caplog.at_level("INFO", logger="run_active_learning"):
+        run_one_experiment(cfg)
+
+    assert any(
+        "RUN_CONTEXT dataset_name=demo_dataset" in record.message
+        for record in caplog.records
+    )
+
+
+def test_run_single_experiment_saves_partial_results_on_selection_failure(
+    tmp_path, monkeypatch
+):
+    cfg = _build_cfg(tmp_path)
+    _patch_make_steps(monkeypatch)
+
+    def fail_select(experiment):
+        raise RuntimeError("selection interrupted")
+
+    cfg.query_strategy.select = fail_select
+
+    summary = run_one_experiment(cfg)
+
+    out_dir = Path(cfg.al_settings["output_dir"])
+    summary_path = out_dir / "summary.json"
+    results_path = out_dir / "results.csv"
+
+    assert results_path.exists()
+    assert summary_path.exists()
+    assert summary["stopped_early"] is True
+    assert summary["completed_rounds"] == 1
+    assert summary["failure_info"]["stage"] == "select"
+
+    saved_summary = json.loads(summary_path.read_text())
+    assert saved_summary["stopped_early"] is True
+    assert saved_summary["failure_info"]["stage"] == "select"

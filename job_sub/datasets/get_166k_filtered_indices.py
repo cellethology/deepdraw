@@ -16,7 +16,7 @@ DEFAULT_METADATA_PATH = Path(
     "/home/wangzitongLab/wangzitong/gene_circuit_design/data_new/"
     "Rai_2024_166k/166k_Library_CLASSIC_Data.csv"
 )
-DEFAULT_OUTPUT_PATH = Path("166k_subset_ids.txt")
+DEFAULT_OUTPUT_PATH = Path("166k_filtered_indices.txt")
 DEFAULT_COLUMN = "No. of Barcodes"
 DEFAULT_MIN_VALUE = 2
 

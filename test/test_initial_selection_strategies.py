@@ -10,6 +10,7 @@ from core.initial_selection_strategies import (
     DensityWeightedCoreSetInitialSelection,
     KMeansInitialSelection,
     RandomInitialSelection,
+    TypiClustInitialSelection,
 )
 
 
@@ -189,3 +190,84 @@ def test_density_weighted_build_density_weights_scales_inverse_density():
     assert weights[0] > weights[1]
     expected = 1.0 + strategy.density_scale * np.array([1.0, 0.5])
     assert np.allclose(weights, expected)
+
+
+def test_typiclust_initial_selection_returns_unique_indices():
+    rng = np.random.default_rng(0)
+    embeddings = np.vstack(
+        [
+            rng.normal(loc=(-2.0, -2.0), scale=0.2, size=(20, 2)),
+            rng.normal(loc=(2.0, 2.0), scale=0.2, size=(20, 2)),
+        ]
+    )
+    dataset = _dataset_from_embeddings(embeddings)
+    strategy = TypiClustInitialSelection(seed=123, starting_batch_size=8)
+
+    indices = strategy.select(dataset)
+
+    assert len(indices) == 8
+    assert len(set(indices)) == 8
+    assert all(0 <= idx < len(dataset.sample_ids) for idx in indices)
+
+
+def test_typiclust_initial_selection_is_deterministic_for_seed():
+    embeddings = np.array(
+        [
+            [0.0, 0.0],
+            [0.1, 0.0],
+            [0.0, 0.1],
+            [5.0, 5.0],
+            [5.1, 5.0],
+            [5.0, 5.1],
+            [10.0, 10.0],
+            [10.1, 10.0],
+            [10.0, 10.1],
+        ],
+        dtype=float,
+    )
+    dataset = _dataset_from_embeddings(embeddings)
+
+    strategy_a = TypiClustInitialSelection(seed=42, starting_batch_size=4)
+    strategy_b = TypiClustInitialSelection(seed=42, starting_batch_size=4)
+
+    indices_a = strategy_a.select(dataset)
+    indices_b = strategy_b.select(dataset)
+
+    assert indices_a == indices_b
+
+
+def test_typiclust_initial_selection_caps_to_dataset_size():
+    dataset = _dataset_from_embeddings([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
+    strategy = TypiClustInitialSelection(seed=1, starting_batch_size=10)
+
+    indices = strategy.select(dataset)
+
+    assert len(indices) == 3
+    assert len(set(indices)) == 3
+
+
+def test_typiclust_initial_selection_falls_back_when_clusters_filtered():
+    embeddings = np.array(
+        [
+            [0.0, 0.0],
+            [0.0, 0.1],
+            [0.1, 0.0],
+            [4.0, 4.0],
+            [4.1, 4.0],
+            [4.0, 4.1],
+            [8.0, 8.0],
+            [8.1, 8.0],
+        ],
+        dtype=float,
+    )
+    dataset = _dataset_from_embeddings(embeddings)
+    strategy = TypiClustInitialSelection(
+        seed=7,
+        starting_batch_size=5,
+        min_cluster_size=1000,
+    )
+
+    indices = strategy.select(dataset)
+
+    assert len(indices) == 5
+    assert len(set(indices)) == 5

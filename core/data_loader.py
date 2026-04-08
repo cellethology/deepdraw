@@ -106,7 +106,7 @@ class DataLoader:
             )
         embeddings = data["embeddings"]
         sample_ids = data["ids"].astype(
-            np.int32
+            np.int32, copy=False
         )  # sample_ids is row index of csv, so we need to convert it to integer
         return embeddings, sample_ids
 

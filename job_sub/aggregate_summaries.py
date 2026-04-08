@@ -1,8 +1,8 @@
 """
-Aggregate summary.json files from Hydra sweeps into combined CSVs.
+Aggregate summary.json files from Hydra sweeps into by-round CSVs.
 
-Run this script after SubmitIt jobs finish to generate combined_summaries.csv
-and combined_summaries.by_round.csv for every dataset directory under a
+Run this script after SubmitIt jobs finish to generate
+combined_summaries.by_round.csv for every dataset directory under a
 specific sweep timestamp directory.
 
 Example:
@@ -41,7 +41,6 @@ def combine_summaries(
     if not summary_files:
         return dict.fromkeys(summary_names, 0)
 
-    rows_by_name = {name: [] for name in summary_names}
     round_rows_by_name = {name: [] for name in summary_names}
     for path in tqdm(summary_files, desc=f"Reading summaries for {dataset_name}"):
         if path.name not in name_set:
@@ -64,41 +63,26 @@ def combine_summaries(
                             **round_record,
                         }
                     )
-            summary_row = dict(data)
-            summary_row.pop(_SUMMARY_BY_ROUND_KEY, None)
-            rows_by_name[path.name].append(summary_row)
         except json.JSONDecodeError:
             continue
 
     counts: dict[str, int] = {}
-    for summary_name, rows in rows_by_name.items():
-        if not rows:
+    for summary_name, round_rows in round_rows_by_name.items():
+        if not round_rows:
             counts[summary_name] = 0
             continue
-        df = pd.DataFrame(rows)
         safe_stem = Path(summary_name).name.replace("/", "_")
         safe_stem = Path(safe_stem).stem
-        output_name = (
-            "combined_summaries.csv"
+        round_df = pd.DataFrame(round_rows)
+        round_output_name = (
+            "combined_summaries.by_round.csv"
             if summary_name == "summary.json"
-            else f"combined_summaries.{safe_stem}.csv"
+            else f"combined_summaries.{safe_stem}.by_round.csv"
         )
-        output_csv = search_dir / output_name
-        df.to_csv(output_csv, index=False)
-        counts[summary_name] = len(rows)
-        print(f"Combined {len(rows)} summaries into {output_csv}")
-
-        round_rows = round_rows_by_name.get(summary_name, [])
-        if round_rows:
-            round_df = pd.DataFrame(round_rows)
-            round_output_name = (
-                "combined_summaries.by_round.csv"
-                if summary_name == "summary.json"
-                else f"combined_summaries.{safe_stem}.by_round.csv"
-            )
-            round_output_csv = search_dir / round_output_name
-            round_df.to_csv(round_output_csv, index=False)
-            print(f"Combined {len(round_rows)} round summaries into {round_output_csv}")
+        round_output_csv = search_dir / round_output_name
+        round_df.to_csv(round_output_csv, index=False)
+        counts[summary_name] = len(round_rows)
+        print(f"Combined {len(round_rows)} round summaries into {round_output_csv}")
     return counts
 
 
