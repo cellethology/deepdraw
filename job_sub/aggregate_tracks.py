@@ -44,6 +44,7 @@ def aggregate_tracks(
         dfs = pd.concat(dfs, ignore_index=True)
         dfs.to_csv(path_dir / "combined_tracks.csv", index=False)
         print("Saved combined tracks to", path_dir / "combined_tracks.csv")
+    print("Finished aggregating tracks for all datasets in", sweep_dir)
 
         
 
