@@ -13,6 +13,7 @@ DUMMY_METRICS = {
     "best_true": 1.0,
     "normalized_true": 0.5,
     "train_spearman": 0.9,
+    "pool_spearman": 0.2,
     "extreme_value_auc": 0.8,
 }
 
@@ -57,6 +58,7 @@ class TestRoundTracker:
                 "normalized_true": 0.2,
                 "n_top": 1,
                 "train_spearman": 0.1,
+                "pool_spearman": 0.2,
                 "extreme_value_auc": 0.2,
             },
         )
@@ -66,6 +68,7 @@ class TestRoundTracker:
                 "normalized_true": 0.4,
                 "n_top": 0,
                 "train_spearman": 0.3,
+                "pool_spearman": 0.4,
                 "extreme_value_auc": 0.4,
             },
         )
@@ -75,6 +78,7 @@ class TestRoundTracker:
                 "normalized_true": 0.3,
                 "n_top": 1,
                 "train_spearman": 0.2,
+                "pool_spearman": 0.6,
                 "extreme_value_auc": 0.5,
             },
         )
@@ -85,6 +89,7 @@ class TestRoundTracker:
         assert pytest.approx(1.0, rel=1e-6) == metrics["rounds_to_top"]
         assert pytest.approx(0.4, rel=1e-6) == metrics["overall_true"]
         assert pytest.approx(0.3, rel=1e-6) == metrics["max_train_spearman"]
+        assert pytest.approx(0.6, rel=1e-6) == metrics["pool_spearman"]
         assert pytest.approx(0.5, rel=1e-6) == metrics["max_extreme_value_auc"]
 
     def test_compute_summary_metrics_missing_required_column(self):
@@ -105,6 +110,7 @@ class TestRoundTracker:
                 "normalized_true": 0.2,
                 "n_top": 1,
                 "train_spearman": 0.1,
+                "pool_spearman": 0.2,
                 "extreme_value_auc": 0.2,
             },
         )
@@ -114,6 +120,7 @@ class TestRoundTracker:
                 "normalized_true": 0.4,
                 "n_top": 0,
                 "train_spearman": 0.3,
+                "pool_spearman": 0.4,
                 "extreme_value_auc": 0.4,
             },
         )
@@ -123,6 +130,7 @@ class TestRoundTracker:
                 "normalized_true": 0.3,
                 "n_top": 1,
                 "train_spearman": 0.2,
+                "pool_spearman": 0.6,
                 "extreme_value_auc": 0.5,
             },
         )
@@ -135,6 +143,7 @@ class TestRoundTracker:
                 "rounds_to_top": 1.0,
                 "overall_true": 0.2,
                 "max_train_spearman": 0.1,
+                "pool_spearman": 0.2,
                 "max_extreme_value_auc": 0.2,
             },
             {
@@ -143,6 +152,7 @@ class TestRoundTracker:
                 "rounds_to_top": 1.0,
                 "overall_true": 0.4,
                 "max_train_spearman": 0.3,
+                "pool_spearman": 0.4,
                 "max_extreme_value_auc": 0.4,
             },
             {
@@ -151,6 +161,7 @@ class TestRoundTracker:
                 "rounds_to_top": 1.0,
                 "overall_true": 0.4,
                 "max_train_spearman": 0.3,
+                "pool_spearman": 0.6,
                 "max_extreme_value_auc": 0.5,
             },
         ]

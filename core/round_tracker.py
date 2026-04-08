@@ -19,6 +19,7 @@ SUMMARY_METRIC_RULES = {
     "overall_true": ("max_overall", "normalized_true"),
     "max_train_spearman": ("max_overall", "train_spearman"),
     "max_extreme_value_auc": ("max_overall", "extreme_value_auc"),
+    "pool_spearman": ("last", "pool_spearman"),
 }
 
 
@@ -133,6 +134,8 @@ class RoundTracker:
                 summary_values[metric_name] = (
                     float(hits[0] + 1) if hits.size else float("nan")
                 )
+            elif rule == "last":
+                summary_values[metric_name] = float(values[-1])
             else:
                 raise ValueError(
                     f"Unknown summary metric rule '{rule}' for {metric_name}"

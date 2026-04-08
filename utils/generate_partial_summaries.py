@@ -28,6 +28,7 @@ SUMMARY_METRIC_RULES = {
     "overall_true": ("max_overall", "normalized_true"),
     "max_train_spearman": ("max_overall", "train_spearman"),
     "max_extreme_value_auc": ("max_overall", "extreme_value_auc"),
+    "pool_spearman": ("last", "pool_spearman"),
 }
 
 
@@ -121,6 +122,8 @@ def _compute_summary(rows: list[dict[str, Any]]) -> dict[str, float]:
         elif rule == "rounds_to_top":
             hits = np.where(values >= 1)[0]
             summary[metric_name] = float(hits[0] + 1) if hits.size else float("nan")
+        elif rule == "last":
+            summary[metric_name] = float(values[-1])
         else:
             raise ValueError(f"Unknown summary metric rule: {rule}")
 
