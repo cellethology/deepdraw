@@ -23,38 +23,11 @@ class InitialSelectionStrategy(ABC):
         self.starting_batch_size = starting_batch_size
 
     @abstractmethod
-    def _select(
-        self,
-        dataset: Dataset,
-    ) -> list[int]:
-        """Return indices for the initial training pool."""
-        raise NotImplementedError("Must implement _select() in subclass")
-
     def select(
         self,
         dataset: Dataset,
     ) -> list[int]:
         """Return indices for the initial training pool."""
-        selected = self._select(dataset)
-        self._log_round(selected)
-        return selected
-
-    def _log_round(
-        self,
-        selected_indices: list[int],
-        extra_info: str | None = None,
-    ) -> None:
-        """
-        Log information about the round.
-
-        Args:
-            selected_indices: Indices that were selected
-            extra_info: Extra information to include in the log message
-        """
-        log_msg = f"Selected indices: {selected_indices}"
-        if extra_info:
-            log_msg += f" {extra_info}"
-        logger.info(log_msg)
 
 
 class RandomInitialSelection(InitialSelectionStrategy):
@@ -64,7 +37,7 @@ class RandomInitialSelection(InitialSelectionStrategy):
         super().__init__("RANDOM", starting_batch_size=starting_batch_size)
         self.seed = seed
 
-    def _select(
+    def select(
         self,
         dataset: Dataset,
     ) -> list[int]:
@@ -81,7 +54,7 @@ class KMeansInitialSelection(InitialSelectionStrategy):
         super().__init__("KMEANS", starting_batch_size=starting_batch_size)
         self.seed = seed
 
-    def _select(
+    def select(
         self,
         dataset: Dataset,
     ) -> list[int]:
@@ -125,7 +98,7 @@ class CoreSetInitialSelection(InitialSelectionStrategy):
         self.density_neighbors = max(1, density_neighbors)
         self._rng = np.random.default_rng(seed)
 
-    def _select(
+    def select(
         self,
         dataset: Dataset,
     ) -> list[int]:
@@ -285,7 +258,7 @@ class TypiClustInitialSelection(InitialSelectionStrategy):
         self.mini_batch_size = max(10, mini_batch_size)
         self._rng = np.random.default_rng(seed)
 
-    def _select(self, dataset: Dataset) -> list[int]:
+    def select(self, dataset: Dataset) -> list[int]:
         embeddings = np.asarray(dataset.embeddings)
         num_samples = embeddings.shape[0]
         target = min(self.starting_batch_size, num_samples)
@@ -437,7 +410,7 @@ class ProbCoverInitialSelection(InitialSelectionStrategy):
         self.pair_sample_size = max(1000, pair_sample_size)
         self._rng = np.random.default_rng(seed)
 
-    def _select(self, dataset: Dataset) -> list[int]:
+    def select(self, dataset: Dataset) -> list[int]:
         embeddings = np.asarray(dataset.embeddings)
         num_samples = embeddings.shape[0]
         target = min(self.starting_batch_size, num_samples)
