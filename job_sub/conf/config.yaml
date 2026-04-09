@@ -19,7 +19,7 @@ embedding_model: 1m_alphagenome_1bp_embeddings_kneedle
 embedding_path: ${embedding_dir}/${embedding_model}.npz
 subset_ids_path: ${dataset_field:${datasets_file},${dataset_index},subset_ids_path,null}
 # base directory for Hydra run outputs (can be overridden in config/CLI)
-results_root_dir: /storage2/wangzitongLab/share/deepdraw_opt/jerry
+results_root_dir: /storage2/wangzitongLab/share/xuyin_tmp/al_results
 
 # number of random seeds to run for each active learning experiment
 num_seeds_per_job: 30
@@ -47,9 +47,9 @@ hydra:
     subdir: ${dataset_name}/${override_values:${hydra.job.override_dirname},dataset_index|single_array_across_datasets|al_settings.seed,default}
   sweeper: # multirun mode sweeps over these parameters
     params:
-      initial_selection_strategy: probcover_euclidean, core_set, random
-      embedding_model: gLM2_166k_kneedle
-      query_strategy: botorch_qlog_nei, topk, botorch_q_ucb
+      initial_selection_strategy: core_set,density_core_set,random,probcover,kmeans,probcover_euclidean,typiclust
+      embedding_model: 166k_alphagenome_1bp_embeddingkneedle
+      query_strategy: random
       predictor: botorch_gp
   launcher:
     timeout_min: 720
