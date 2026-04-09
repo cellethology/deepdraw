@@ -15,14 +15,14 @@ dataset_index: ${env:AL_DATASET_INDEX,0}
 dataset_name: ${dataset_field:${datasets_file},${dataset_index},name}
 metadata_path: ${dataset_field:${datasets_file},${dataset_index},metadata_path}
 embedding_dir: ${dataset_field:${datasets_file},${dataset_index},embedding_dir}
-embedding_model: 1m_alphagenome_1bp_embeddings_kneedle
+embedding_model: 166k_alphagenome_1bp_embeddingkneedle
 embedding_path: ${embedding_dir}/${embedding_model}.npz
 subset_ids_path: ${dataset_field:${datasets_file},${dataset_index},subset_ids_path,null}
 # base directory for Hydra run outputs (can be overridden in config/CLI)
 results_root_dir: /storage2/wangzitongLab/share/deepdraw_opt/jerry
 
 # number of random seeds to run for each active learning experiment
-num_seeds_per_job: 300
+num_seeds_per_job: 30
 seed_start: 0
 parallelize_seeds: true
 
@@ -30,7 +30,7 @@ parallelize_seeds: true
 al_settings:
   batch_size: 12
   starting_batch_size: 12
-  max_rounds: 49 # not including the initial selection
+  max_rounds: 29 # not including the initial selection
   feature_transforms: ${feature_transforms}
   target_transforms: ${target_transforms}
   output_dir: ${hydra:runtime.output_dir}
@@ -48,14 +48,14 @@ hydra:
   sweeper: # multirun mode sweeps over these parameters
     params:
       initial_selection_strategy: probcover_euclidean
-      embedding_model: 166k_alphagenome_1bp_embeddingkneedle
-      query_strategy: random
+      embedding_model: 166k_enformer_center_kneedle, evo1_131k_kneedle, evo2_meanpool_block28_updated_kneedle, generanno_meanpool_kneedle, gLM2_166k_kneedle, ntv3_650M-post_after-transformer-embedding_kneedle
+      query_strategy: botorch_qlog_nei
       predictor: botorch_gp
   launcher:
-    timeout_min: 60
+    timeout_min: 360
     # everything below is used only for submitting jobs to the cluster
     partition: intel-sc3,wzt_20250411 # no spacing between names
     cpus_per_task: 1
     qos: huge
-    mem_per_cpu: 16GB
+    mem_per_cpu: 32GB
     submitit_folder: slurm_logs
