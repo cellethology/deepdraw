@@ -42,6 +42,8 @@ al_settings:
 
 # hydra settings
 hydra:
+  job:
+    name: embedding_sweep
   sweep:
     dir: ${results_root_dir}/${now:%Y-%m-%d}/${now:%H-%M-%S}
     subdir: ${dataset_name}/${override_values:${hydra.job.override_dirname},dataset_index|single_array_across_datasets|al_settings.seed,default}
