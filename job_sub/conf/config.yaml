@@ -9,7 +9,7 @@ defaults:
   - override hydra/launcher: submitit_slurm
 
 # data paths
-datasets_file: datasets/166k_datasets_shuffled.yaml
+datasets_file: datasets/166k_datasets_shuffled_more_grades.yaml
 single_array_across_datasets: true
 dataset_index: ${env:AL_DATASET_INDEX,0}
 dataset_name: ${dataset_field:${datasets_file},${dataset_index},name}
@@ -52,7 +52,7 @@ hydra:
       query_strategy: botorch_qlog_nei
       predictor: botorch_gp
   launcher:
-    timeout_min: 720
+    timeout_min: 360
     # everything below is used only for submitting jobs to the cluster
     partition: intel-sc3,wzt_20250411 # no spacing between names
     cpus_per_task: 1
