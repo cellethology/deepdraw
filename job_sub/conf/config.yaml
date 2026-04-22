@@ -9,7 +9,7 @@ defaults:
   - override hydra/launcher: submitit_slurm
 
 # data paths
-datasets_file: datasets/166k_datasets_shuffled_more_grades.yaml
+datasets_file: datasets/166k_datasets_shuffled_only100.yaml
 single_array_across_datasets: true
 dataset_index: ${env:AL_DATASET_INDEX,0}
 dataset_name: ${dataset_field:${datasets_file},${dataset_index},name}
