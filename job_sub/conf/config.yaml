@@ -30,7 +30,7 @@ parallelize_seeds: true
 al_settings:
   batch_size: 12
   starting_batch_size: 12
-  max_rounds: 29 # not including the initial selection
+  max_rounds: 19 # not including the initial selection
   feature_transforms: ${feature_transforms}
   target_transforms: ${target_transforms}
   output_dir: ${hydra:runtime.output_dir}
@@ -50,7 +50,7 @@ hydra:
   sweeper: # multirun mode sweeps over these parameters
     params:
       initial_selection_strategy: probcover_euclidean
-      embedding_model: 166k_alphagenome_1bp_embeddingelbow
+      embedding_model: 166k_alphagenome_1bp_embeddingparallel-analysis
       query_strategy: botorch_mes
       predictor: botorch_gp
   launcher:

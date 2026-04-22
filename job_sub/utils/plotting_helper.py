@@ -27,7 +27,7 @@ def plot_prop_for_col(
     task_order: Sequence[str] | None = None,
     color_map: dict[str, str] | None = None,
     show_legend: bool = True,
-    legend_title: str = "Best strategy",
+    legend_title: str = "",
     legend_kwargs: dict | None = None,
     scale_to_percent: bool = False,
     title: str | None = None,
