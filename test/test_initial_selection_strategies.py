@@ -331,3 +331,95 @@ def test_deterministic_probcover_fallback_fill_uses_sorted_indices():
     indices = strategy.select(dataset)
 
     assert indices == [0, 1, 2]
+
+
+def test_deterministic_probcover_estimate_delta_falls_back_to_default_when_no_candidates(
+    monkeypatch,
+):
+    embeddings = np.array([[0.0, 0.0], [0.0, 0.0]], dtype=float)
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=1,
+        auto_delta=True,
+        delta=None,
+        metric="euclidean",
+    )
+
+    monkeypatch.setattr(
+        DeterministicProbCoverInitialSelection,
+        "_compute_pseudo_labels",
+        lambda self, embeddings, num_clusters: np.zeros(len(embeddings), dtype=int),
+    )
+    monkeypatch.setattr(
+        DeterministicProbCoverInitialSelection,
+        "_select_representative_indices",
+        lambda self, embeddings, sample_size: np.arange(
+            min(sample_size, len(embeddings)), dtype=int
+        ),
+    )
+    monkeypatch.setattr(
+        DeterministicProbCoverInitialSelection,
+        "_candidate_deltas",
+        lambda self, embeddings: np.array([], dtype=float),
+    )
+
+    assert strategy._estimate_delta(embeddings) == 0.5
+
+
+def test_deterministic_probcover_candidate_deltas_handles_cosine():
+    embeddings = np.array(
+        [
+            [1.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 1.0],
+            [1.0, -1.0],
+        ],
+        dtype=float,
+    )
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=2,
+        metric="cosine",
+        pair_sample_size=6,
+        delta_candidates=5,
+        representative_clusters=3,
+    )
+
+    candidates = strategy._candidate_deltas(embeddings)
+
+    assert candidates.size > 0
+    assert np.all(np.isfinite(candidates))
+    assert np.all(candidates > 0)
+    assert np.all(np.diff(candidates) >= 0)
+
+
+def test_deterministic_probcover_select_representatives_returns_all_when_sample_covers_dataset():
+    embeddings = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]],
+        dtype=float,
+    )
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=2,
+        metric="euclidean",
+    )
+
+    indices = strategy._select_representative_indices(embeddings, sample_size=5)
+
+    assert np.array_equal(indices, np.array([0, 1, 2], dtype=int))
+
+
+def test_deterministic_probcover_allocate_cluster_counts_respects_limits():
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=2,
+        metric="euclidean",
+    )
+
+    counts = strategy._allocate_cluster_counts([10, 1, 1], sample_size=4)
+
+    assert sum(counts) == 4
+    assert counts[0] >= counts[1]
+    assert counts[0] >= counts[2]
+    assert counts[1] >= 1
+    assert counts[2] >= 1
