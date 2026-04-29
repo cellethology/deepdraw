@@ -624,3 +624,247 @@ class ProbCoverInitialSelection(InitialSelectionStrategy):
                 )
                 selected.extend(int(idx) for idx in extra)
         return selected
+
+
+class DeterministicProbCoverInitialSelection(ProbCoverInitialSelection):
+    """ProbCover variant with deterministic auto-delta estimation."""
+
+    def __init__(
+        self,
+        seed: int,
+        starting_batch_size: int,
+        delta: float | None = None,
+        batch_size: int = 512,
+        device: str = "cpu",
+        metric: str = "cosine",
+        auto_delta: bool = False,
+        alpha: float = 0.95,
+        kmeans_clusters: int | None = None,
+        delta_candidates: int = 25,
+        delta_sample_size: int = 1000,
+        pair_sample_size: int = 20000,
+        representative_clusters: int = 32,
+    ) -> None:
+        super().__init__(
+            seed=seed,
+            starting_batch_size=starting_batch_size,
+            delta=delta,
+            batch_size=batch_size,
+            device=device,
+            metric=metric,
+            auto_delta=auto_delta,
+            alpha=alpha,
+            kmeans_clusters=kmeans_clusters,
+            delta_candidates=delta_candidates,
+            delta_sample_size=delta_sample_size,
+            pair_sample_size=pair_sample_size,
+        )
+        self.name = "PROBCOVER_DETERMINISTIC"
+        self.representative_clusters = max(2, representative_clusters)
+        self._deterministic_seed = 0
+
+    def _estimate_delta(self, embeddings: np.ndarray) -> float:
+        num_samples = embeddings.shape[0]
+        num_clusters = self._resolve_kmeans_clusters(num_samples)
+        pseudo_labels = self._compute_pseudo_labels(embeddings, num_clusters)
+
+        sample_size = min(self.delta_sample_size, num_samples)
+        sample_idx = self._select_representative_indices(embeddings, sample_size)
+        sample_emb = embeddings[sample_idx]
+        sample_labels = pseudo_labels[sample_idx]
+
+        candidates = self._candidate_deltas(embeddings)
+        if not candidates.size:
+            return float(self.delta) if self.delta is not None else 0.5
+        max_delta = float(candidates[-1])
+
+        nn = NearestNeighbors(radius=max_delta, metric=self.metric)
+        nn.fit(embeddings)
+        distances, neighbors = nn.radius_neighbors(sample_emb, return_distance=True)
+
+        purity_scores = []
+        for delta in candidates:
+            purity_sum = 0.0
+            count = 0
+            for dist, idx, label in zip(
+                distances, neighbors, sample_labels, strict=False
+            ):
+                if dist.size == 0:
+                    continue
+                within = dist <= delta
+                if not np.any(within):
+                    continue
+                labels = pseudo_labels[idx[within]]
+                purity_sum += float(np.mean(labels == label))
+                count += 1
+            avg_purity = purity_sum / count if count > 0 else 0.0
+            purity_scores.append(avg_purity)
+
+        best_delta = None
+        for delta, purity in zip(candidates, purity_scores, strict=False):
+            if purity >= self.alpha:
+                best_delta = float(delta)
+        if best_delta is None:
+            best_delta = float(candidates[0])
+        return best_delta
+
+    def _compute_pseudo_labels(
+        self, embeddings: np.ndarray, num_clusters: int
+    ) -> np.ndarray:
+        kmeans = KMeans(
+            n_clusters=num_clusters,
+            random_state=self._deterministic_seed,
+            n_init=10,
+        )
+        return kmeans.fit_predict(embeddings)
+
+    def _candidate_deltas(self, embeddings: np.ndarray) -> np.ndarray:
+        num_samples = embeddings.shape[0]
+        pair_target = min(
+            self.pair_sample_size, max(1, num_samples * (num_samples - 1))
+        )
+        if pair_target <= 0:
+            return np.array([], dtype=float)
+
+        representative_size = min(
+            num_samples,
+            max(2, int(np.ceil(np.sqrt(pair_target)))),
+        )
+        representative_idx = self._select_representative_indices(
+            embeddings,
+            representative_size,
+        )
+        rep_embeddings = embeddings[representative_idx]
+
+        if self.metric == "cosine":
+            distances = pairwise_distances(rep_embeddings, metric="cosine")
+        else:
+            distances = pairwise_distances(rep_embeddings, metric=self.metric)
+        upper = distances[np.triu_indices_from(distances, k=1)]
+        upper = upper[np.isfinite(upper) & (upper > 0)]
+        if upper.size == 0:
+            return np.array([], dtype=float)
+        quantiles = np.linspace(0.1, 0.99, self.delta_candidates)
+        candidates = np.unique(np.quantile(upper, quantiles))
+        return candidates[candidates > 0]
+
+    def _select_representative_indices(
+        self,
+        embeddings: np.ndarray,
+        sample_size: int,
+    ) -> np.ndarray:
+        num_samples = embeddings.shape[0]
+        if sample_size >= num_samples:
+            return np.arange(num_samples, dtype=int)
+
+        num_clusters = min(sample_size, self.representative_clusters, num_samples)
+        kmeans = KMeans(
+            n_clusters=num_clusters,
+            random_state=self._deterministic_seed,
+            n_init=10,
+        )
+        labels = kmeans.fit_predict(embeddings)
+        centers = kmeans.cluster_centers_
+        distances_to_center = np.linalg.norm(embeddings - centers[labels], axis=1)
+
+        cluster_indices: list[np.ndarray] = []
+        cluster_sizes: list[int] = []
+        for cluster_id in range(num_clusters):
+            members = np.where(labels == cluster_id)[0]
+            if members.size == 0:
+                continue
+            ordered = members[np.argsort(distances_to_center[members], kind="stable")]
+            cluster_indices.append(ordered)
+            cluster_sizes.append(int(ordered.size))
+
+        if not cluster_indices:
+            return np.arange(sample_size, dtype=int)
+
+        allocations = self._allocate_cluster_counts(cluster_sizes, sample_size)
+        selected: list[int] = []
+        for ordered, count in zip(cluster_indices, allocations, strict=False):
+            selected.extend(int(idx) for idx in ordered[:count])
+
+        if len(selected) < sample_size:
+            leftovers: list[int] = []
+            for ordered, count in zip(cluster_indices, allocations, strict=False):
+                leftovers.extend(int(idx) for idx in ordered[count:])
+            leftovers.sort()
+            needed = sample_size - len(selected)
+            selected.extend(leftovers[:needed])
+
+        selected = sorted(dict.fromkeys(selected))
+        if len(selected) > sample_size:
+            selected = selected[:sample_size]
+        return np.asarray(selected, dtype=int)
+
+    def _allocate_cluster_counts(
+        self,
+        cluster_sizes: list[int],
+        sample_size: int,
+    ) -> list[int]:
+        sizes = np.asarray(cluster_sizes, dtype=float)
+        raw = sizes / sizes.sum() * sample_size
+        counts = np.floor(raw).astype(int)
+        counts = np.minimum(counts, sizes.astype(int))
+
+        active = min(sample_size, len(cluster_sizes))
+        for idx in range(active):
+            if counts[idx] == 0:
+                counts[idx] = 1
+
+        while counts.sum() > sample_size:
+            reducible = np.where(counts > 1)[0]
+            if reducible.size == 0:
+                break
+            idx = int(reducible[np.argmax(counts[reducible] - raw[reducible])])
+            counts[idx] -= 1
+
+        while counts.sum() < sample_size:
+            capacity = sizes.astype(int) - counts
+            expandable = np.where(capacity > 0)[0]
+            if expandable.size == 0:
+                break
+            idx = int(expandable[np.argmax(raw[expandable] - counts[expandable])])
+            counts[idx] += 1
+
+        return counts.astype(int).tolist()
+
+    def _greedy_cover(
+        self,
+        x_edges: np.ndarray,
+        y_edges: np.ndarray,
+        num_samples: int,
+        target: int,
+    ) -> list[int]:
+        selected: list[int] = []
+        covered = np.zeros(num_samples, dtype=bool)
+        cur_x = x_edges
+        cur_y = y_edges
+
+        for i in range(target):
+            if cur_x.size == 0:
+                break
+            degrees = np.bincount(cur_x, minlength=num_samples)
+            cur = int(degrees.argmax())
+            selected.append(cur)
+            new_covered = cur_y[cur_x == cur]
+            covered[new_covered] = True
+            keep = ~covered[cur_y]
+            cur_x = cur_x[keep]
+            cur_y = cur_y[keep]
+            coverage = float(np.mean(covered)) if covered.size else 0.0
+            logger.info(
+                "PROBCOVER_DETERMINISTIC: iter=%d max_degree=%d coverage=%.3f",
+                i,
+                int(degrees.max()) if degrees.size else 0,
+                coverage,
+            )
+
+        remaining = np.setdiff1d(
+            np.arange(num_samples), np.asarray(selected), assume_unique=False
+        )
+        if remaining.size:
+            needed = target - len(selected)
+            selected.extend(int(idx) for idx in remaining[:needed])
+        return selected

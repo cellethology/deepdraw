@@ -1,0 +1,14 @@
+_target_: core.initial_selection_strategies.DeterministicProbCoverInitialSelection
+seed: 0
+starting_batch_size: ${al_settings.starting_batch_size}
+delta: null
+batch_size: 512
+device: cpu
+metric: euclidean
+auto_delta: true
+alpha: 0.95
+kmeans_clusters: 10
+delta_candidates: 50
+delta_sample_size: 4000
+pair_sample_size: 100000
+representative_clusters: 64
