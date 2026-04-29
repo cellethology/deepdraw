@@ -8,6 +8,7 @@ from core.data_loader import Dataset
 from core.initial_selection_strategies import (
     CoreSetInitialSelection,
     DensityWeightedCoreSetInitialSelection,
+    DeterministicProbCoverInitialSelection,
     KMeansInitialSelection,
     RandomInitialSelection,
     TypiClustInitialSelection,
@@ -271,3 +272,62 @@ def test_typiclust_initial_selection_falls_back_when_clusters_filtered():
 
     assert len(indices) == 5
     assert len(set(indices)) == 5
+
+
+def test_deterministic_probcover_is_seed_invariant():
+    rng = np.random.default_rng(0)
+    embeddings = np.vstack(
+        [
+            rng.normal(loc=(-2.0, -2.0), scale=0.25, size=(20, 2)),
+            rng.normal(loc=(2.0, 2.0), scale=0.25, size=(20, 2)),
+            rng.normal(loc=(0.0, 4.0), scale=0.25, size=(20, 2)),
+        ]
+    )
+    dataset = _dataset_from_embeddings(embeddings)
+
+    strategy_a = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=6,
+        metric="euclidean",
+        auto_delta=True,
+        delta_sample_size=18,
+        pair_sample_size=36,
+        representative_clusters=6,
+    )
+    strategy_b = DeterministicProbCoverInitialSelection(
+        seed=999,
+        starting_batch_size=6,
+        metric="euclidean",
+        auto_delta=True,
+        delta_sample_size=18,
+        pair_sample_size=36,
+        representative_clusters=6,
+    )
+
+    indices_a = strategy_a.select(dataset)
+    indices_b = strategy_b.select(dataset)
+
+    assert indices_a == indices_b
+    assert strategy_a.delta == strategy_b.delta
+
+
+def test_deterministic_probcover_fallback_fill_uses_sorted_indices():
+    dataset = _dataset_from_embeddings(
+        [
+            [0.0, 0.0],
+            [10.0, 0.0],
+            [20.0, 0.0],
+            [30.0, 0.0],
+        ]
+    )
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=5,
+        starting_batch_size=3,
+        delta=0.0,
+        metric="euclidean",
+        auto_delta=False,
+    )
+
+    indices = strategy.select(dataset)
+
+    assert indices == [0, 1, 2]
