@@ -9,7 +9,7 @@ defaults:
   - override hydra/launcher: submitit_slurm
 
 # data paths
-datasets_file: datasets/166k_subset.yaml
+datasets_file: datasets/166k_datasets.yaml
 single_array_across_datasets: true
 dataset_index: ${env:AL_DATASET_INDEX,0}
 dataset_name: ${dataset_field:${datasets_file},${dataset_index},name}
@@ -30,7 +30,7 @@ parallelize_seeds: true
 al_settings:
   batch_size: 12
   starting_batch_size: 12
-  max_rounds: 19 # not including the initial selection
+  max_rounds: 29 # not including the initial selection
   feature_transforms: ${feature_transforms}
   target_transforms: ${target_transforms}
   output_dir: ${hydra:runtime.output_dir}
@@ -51,10 +51,10 @@ hydra:
     params:
       initial_selection_strategy: probcover_euclidean
       embedding_model: 166k_alphagenome_1bp_embeddingparallel-analysis
-      query_strategy: botorch_mes
+      query_strategy: botorch_qlog_nei
       predictor: botorch_gp
   launcher:
-    timeout_min: 1800
+    timeout_min: 480
     # everything below is used only for submitting jobs to the cluster
     partition: intel-sc3,wzt_20250411 # no spacing between names
     cpus_per_task: 1
