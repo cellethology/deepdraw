@@ -54,7 +54,7 @@ hydra:
       query_strategy: botorch_qlog_nei
       predictor: botorch_gp
   launcher:
-    timeout_min: 480
+    timeout_min: 1800
     # everything below is used only for submitting jobs to the cluster
     partition: intel-sc3,wzt_20250411 # no spacing between names
     cpus_per_task: 1
