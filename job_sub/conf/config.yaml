@@ -9,7 +9,7 @@ defaults:
   - override hydra/launcher: submitit_slurm
 
 # data paths
-datasets_file: datasets/1m_base_more_seeds.yaml
+datasets_file: datasets/1m_base_or_three_datasets.yaml
 single_array_across_datasets: true
 dataset_index: ${env:AL_DATASET_INDEX,0}
 dataset_name: ${dataset_field:${datasets_file},${dataset_index},name}
@@ -22,7 +22,7 @@ subset_ids_path: ${dataset_field:${datasets_file},${dataset_index},subset_ids_pa
 results_root_dir: /storage2/wangzitongLab/share/deepdraw_opt/jerry
 
 # number of random seeds to run for each active learning experiment
-num_seeds_per_job: 30
+num_seeds_per_job: 60
 seed_start: 30
 parallelize_seeds: true
 
@@ -35,7 +35,7 @@ al_settings:
   target_transforms: ${target_transforms}
   output_dir: ${hydra:runtime.output_dir}
   query_strategy: ${query_strategy}
-  label_key: "and_score"
+  label_key: "or_score"
   predictor: ${predictor}
   initial_selection_strategy: ${initial_selection_strategy}
   seed: 0

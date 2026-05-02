@@ -1,0 +1,12 @@
+- name: base_Prom_SynTF_A_part1.0_indices
+  metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_Prom_SynTF_A_part1.0_indices
+  subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_Prom_SynTF_A_part1.0_indices.txt
+- name: base_ZF_Affinity_SynTF_A_part1.0_indices
+  metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_A_part1.0_indices
+  subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_A_part1.0_indices.txt
+- name: base_ZF_Affinity_SynTF_B_part3.0_indices
+  metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/base_data_with_scores.csv
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_1M_base/base_ZF_Affinity_SynTF_B_part3.0_indices
+  subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_1M/1m_subsets/1m_base_subsets/base_ZF_Affinity_SynTF_B_part3.0_indices.txt
