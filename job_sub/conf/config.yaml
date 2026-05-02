@@ -15,7 +15,7 @@ dataset_index: ${env:AL_DATASET_INDEX,0}
 dataset_name: ${dataset_field:${datasets_file},${dataset_index},name}
 metadata_path: ${dataset_field:${datasets_file},${dataset_index},metadata_path}
 embedding_dir: ${dataset_field:${datasets_file},${dataset_index},embedding_dir}
-embedding_model: 166k_alphagenome_1bp_embeddingkneedle
+embedding_model: 1m_alphagenome_1bp_embeddings_kneedle
 embedding_path: ${embedding_dir}/${embedding_model}.npz
 subset_ids_path: ${dataset_field:${datasets_file},${dataset_index},subset_ids_path,null}
 # base directory for Hydra run outputs (can be overridden in config/CLI)
@@ -50,7 +50,7 @@ hydra:
   sweeper: # multirun mode sweeps over these parameters
     params:
       initial_selection_strategy: probcover_euclidean
-      embedding_model: 166k_alphagenome_1bp_embeddingkneedle
+      embedding_model: 1m_alphagenome_1bp_embeddings_kneedle
       query_strategy: botorch_mes
       predictor: botorch_gp
   launcher:
