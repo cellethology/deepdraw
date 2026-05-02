@@ -9,7 +9,7 @@ defaults:
   - override hydra/launcher: submitit_slurm
 
 # data paths
-datasets_file: datasets/166k_datasets.yaml
+datasets_file: datasets/1m_base_more_seeds.yaml
 single_array_across_datasets: true
 dataset_index: ${env:AL_DATASET_INDEX,0}
 dataset_name: ${dataset_field:${datasets_file},${dataset_index},name}
@@ -23,7 +23,7 @@ results_root_dir: /storage2/wangzitongLab/share/deepdraw_opt/jerry
 
 # number of random seeds to run for each active learning experiment
 num_seeds_per_job: 30
-seed_start: 0
+seed_start: 30
 parallelize_seeds: true
 
 # active learning settings
@@ -35,7 +35,7 @@ al_settings:
   target_transforms: ${target_transforms}
   output_dir: ${hydra:runtime.output_dir}
   query_strategy: ${query_strategy}
-  label_key: "Fold Change (Induced/Basal)"
+  label_key: "and_score"
   predictor: ${predictor}
   initial_selection_strategy: ${initial_selection_strategy}
   seed: 0
@@ -49,12 +49,12 @@ hydra:
     subdir: ${dataset_name}/${override_values:${hydra.job.override_dirname},dataset_index|single_array_across_datasets|al_settings.seed,default}
   sweeper: # multirun mode sweeps over these parameters
     params:
-      initial_selection_strategy: probcover_euclidean_deterministic
+      initial_selection_strategy: probcover_euclidean
       embedding_model: 166k_alphagenome_1bp_embeddingkneedle
-      query_strategy: botorch_qlog_nei
+      query_strategy: botorch_mes
       predictor: botorch_gp
   launcher:
-    timeout_min: 360
+    timeout_min: 1440
     # everything below is used only for submitting jobs to the cluster
     partition: intel-sc3,wzt_20250411 # no spacing between names
     cpus_per_task: 1
