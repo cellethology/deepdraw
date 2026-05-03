@@ -1,0 +1,13 @@
+datasets:
+- name: SynTF_Prom_part2_indices
+  metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_166k/166k_Library_CLASSIC_Data.csv
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_outputs/SynTF_Prom_part2_indices
+  subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_166k/166k_subsets/SynTF_Prom_part2_indices.txt
+- name: Rep_Term_Sp_part1_indices
+  metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_166k/166k_Library_CLASSIC_Data.csv
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_outputs/Rep_Term_Sp_part1_indices
+  subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_166k/166k_subsets/Rep_Term_Sp_part1_indices.txt
+- name: No_of_BS_part3_indices
+  metadata_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_166k/166k_Library_CLASSIC_Data.csv
+  embedding_dir: /storage2/wangzitongLab/share/xuyin_tmp/subset_outputs/No_of_BS_part3_indices
+  subset_ids_path: /storage2/wangzitongLab/share/gene_circuit_design_data/data_new/Rai_2024_166k/166k_subsets/No_of_BS_part3_indices.txt
