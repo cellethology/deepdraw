@@ -42,10 +42,6 @@ uv run deepdraw init \
   --batch-size 3 \
   --seed 11 \
   --initial-selection-strategy random \
-  --predictor ridge_regressor \
-  --query-strategy topk \
-  --feature-transforms none \
-  --target-transforms none \
   --force
 ```
 
@@ -69,6 +65,8 @@ Deepdraw trains on the measured designs and writes the next batch to:
 ```text
 /tmp/deepdraw_dummy_run/round_001_to_measure.csv
 ```
+
+This keeps the quick start small while making the 12-sequence toy example useful: `--starting-batch-size 4` avoids selecting the whole pool, `--batch-size 3` asks for three designs in the next round, and `--seed 11` makes the bundled fake measurements match the initial selection. See [Useful Flags](#useful-flags) for ways to change model, acquisition strategy, and preprocessing.
 
 ## Use Deepdraw On Your Own Project
 
@@ -205,6 +203,70 @@ The default workflow uses:
 
 For very small smoke tests, the dummy example uses faster settings: `random`, `ridge_regressor`, `topk`, and no transforms.
 
+## Useful Flags
+
+The examples above use production defaults. You can override pieces of the workflow when you need a different experimental setup or a faster local smoke test.
+
+Change the number of designs per round:
+
+```bash
+uv run deepdraw init \
+  --pool-csv designs.csv \
+  --embeddings embeddings.npz \
+  --sequence-column sequence \
+  --id-column variant_id \
+  --output-dir runs/my_deepdraw_run \
+  --starting-batch-size 24 \
+  --batch-size 12
+```
+
+Make the dummy example deterministic:
+
+```bash
+uv run deepdraw init \
+  --pool-csv examples/deepdraw_dummy/design_pool.csv \
+  --embeddings examples/deepdraw_dummy/embeddings.npz \
+  --sequence-column sequence \
+  --id-column variant_id \
+  --output-dir /tmp/deepdraw_dummy_run \
+  --starting-batch-size 4 \
+  --batch-size 3 \
+  --seed 11 \
+  --initial-selection-strategy random \
+  --force
+```
+
+Use a faster local smoke-test configuration by swapping in lighter model and transform settings:
+
+```bash
+uv run deepdraw init \
+  --pool-csv examples/deepdraw_dummy/design_pool.csv \
+  --embeddings examples/deepdraw_dummy/embeddings.npz \
+  --sequence-column sequence \
+  --id-column variant_id \
+  --output-dir /tmp/deepdraw_dummy_run \
+  --starting-batch-size 4 \
+  --batch-size 3 \
+  --seed 11 \
+  --initial-selection-strategy random \
+  --predictor ridge_regressor \
+  --query-strategy topk \
+  --feature-transforms none \
+  --target-transforms none \
+  --force
+```
+
+Common override flags:
+
+- `--starting-batch-size`: number of designs in the first batch.
+- `--batch-size`: number of designs in each later batch.
+- `--seed`: random seed for reproducible initial selection and stochastic model components.
+- `--initial-selection-strategy`: first-round strategy, such as `probcover_euclidean`, `core_set`, or `random`.
+- `--predictor`: model used after measurements arrive, such as `botorch_gp` or `ridge_regressor`.
+- `--query-strategy`: acquisition strategy for later rounds, such as `botorch_mes`, `botorch_qlog_nei`, or `topk`.
+- `--feature-transforms`: feature preprocessing config, such as `standardize` or `none`.
+- `--target-transforms`: label preprocessing config, such as `log_standardize` or `none`.
+
 ## CLI Reference
 
 Create a run and select the first batch:
@@ -219,15 +281,13 @@ Train on measured labels and select the next batch:
 uv run deepdraw suggest --help
 ```
 
-Common arguments:
+Required/common arguments:
 
 - `--pool-csv`: CSV containing candidate designs.
 - `--embeddings`: NPZ containing GFM embeddings aligned to the design pool.
 - `--sequence-column`: sequence column in the design pool CSV.
 - `--id-column`: optional stable design ID column in the pool CSV.
 - `--output-dir`: run directory where Deepdraw writes state and recommendations.
-- `--starting-batch-size`: number of designs in the first batch.
-- `--batch-size`: number of designs in each later batch.
 - `--measurements`: CSV containing measured labels from previous recommendations.
 - `--label-column`: measured target column, such as `Expression` or `Fold Change`.
 
