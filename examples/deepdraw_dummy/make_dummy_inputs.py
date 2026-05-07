@@ -10,7 +10,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent
 POOL_PATH = ROOT / "design_pool.csv"
 EMBEDDINGS_PATH = ROOT / "embeddings.npz"
-MEASUREMENTS_PATH = ROOT / "measurements_round0.csv"
+MEASUREMENTS_PATH = ROOT / "measurements.csv"
 NUM_DESIGNS = 60
 ROUND0_POOL_INDICES = [52, 3, 10, 17, 24, 31, 38, 45, 56, 20, 30, 42]
 

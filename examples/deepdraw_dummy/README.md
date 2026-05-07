@@ -18,11 +18,11 @@ Then simulate the first measurement update. In a real project, this file should 
 ```bash
 uv run deepdraw suggest \
   --run-dir deepdraw_run \
-  --measurements examples/deepdraw_dummy/measurements_round0.csv \
+  --measurements examples/deepdraw_dummy/measurements.csv \
   --label-column Expression
 ```
 
-The command above uses the same defaults as a real run, and `measurements_round0.csv` matches its first-round recommendations. After measuring `deepdraw_run/round_001_to_measure.csv`, append those rows to the same measurements file and run `deepdraw suggest` again to get round 2.
+The command above uses the same defaults as a real run, and `measurements.csv` matches its first-round recommendations. After measuring `deepdraw_run/round_001_to_measure.csv`, append those rows to the same measurements file and run `deepdraw suggest` again to get round 2.
 
 For a faster smoke test, use a separate output directory and add:
 
@@ -38,7 +38,7 @@ For a faster smoke test, use a separate output directory and add:
 --target-transforms none
 ```
 
-The bundled `measurements_round0.csv` is for the default command above.
+The bundled `measurements.csv` is for the default command above.
 Regenerate the files with:
 
 ```bash

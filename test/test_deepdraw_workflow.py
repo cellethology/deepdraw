@@ -145,11 +145,11 @@ def test_dummy_example_files_drive_workflow(tmp_path):
         id_column="variant_id",
     )
     first_batch = pd.read_csv(run_dir / "round_000_to_measure.csv")
-    measurements = pd.read_csv(example_dir / "measurements_round0.csv")
+    measurements = pd.read_csv(example_dir / "measurements.csv")
 
     updated_state = suggest_next_batch(
         run_dir=run_dir,
-        measurements_csv=example_dir / "measurements_round0.csv",
+        measurements_csv=example_dir / "measurements.csv",
         label_column="Expression",
     )
     next_batch = pd.read_csv(run_dir / "round_001_to_measure.csv")

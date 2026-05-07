@@ -45,12 +45,12 @@ Deepdraw writes the first batch to:
 deepdraw_run/round_000_to_measure.csv
 ```
 
-Now simulate receiving measurements from the first experimental round. In a real project, this should be a cumulative file, for example `measurements.csv`, that you keep appending to after each round. The dummy example provides the first version as `measurements_round0.csv`.
+Now simulate receiving measurements from the first experimental round. In a real project, this should be a cumulative file, for example `measurements.csv`, that you keep appending to after each round. The dummy example provides its starter version as `measurements.csv`.
 
 ```bash
 uv run deepdraw suggest \
   --run-dir deepdraw_run \
-  --measurements examples/deepdraw_dummy/measurements_round0.csv \
+  --measurements examples/deepdraw_dummy/measurements.csv \
   --label-column Expression
 ```
 
