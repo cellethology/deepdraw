@@ -20,7 +20,6 @@ def main() -> None:
         {
             "variant_id": [f"variant_{idx:02d}" for idx in range(NUM_DESIGNS)],
             "sequence": [_sequence_for(idx) for idx in range(NUM_DESIGNS)],
-            "design_note": [f"starter design {idx}" for idx in range(NUM_DESIGNS)],
         }
     )
     pool.to_csv(POOL_PATH, index=False)
@@ -43,8 +42,7 @@ def main() -> None:
 
     measurements = pd.DataFrame(
         {
-            "deepdraw_pool_index": ROUND0_POOL_INDICES,
-            "deepdraw_id": [f"variant_{idx:02d}" for idx in ROUND0_POOL_INDICES],
+            "variant_id": [f"variant_{idx:02d}" for idx in ROUND0_POOL_INDICES],
             "Expression": [_dummy_expression(idx) for idx in ROUND0_POOL_INDICES],
         }
     )

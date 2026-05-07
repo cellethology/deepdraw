@@ -59,12 +59,7 @@ def test_initialize_run_writes_initial_batch_without_labels(tmp_path):
 
     assert state.rounds[0]["stage"] == "initial"
     assert len(first_batch) == 4
-    assert list(first_batch.columns[:4]) == [
-        "deepdraw_round",
-        "deepdraw_stage",
-        "deepdraw_pool_index",
-        "deepdraw_id",
-    ]
+    assert list(first_batch.columns) == ["variant_id", "sequence", "notes"]
     assert saved_state["rounds"][0]["size"] == 4
     assert (run_dir / "latest_recommendations.csv").exists()
     assert (run_dir / "selection_history.csv").exists()
@@ -109,10 +104,9 @@ def test_suggest_next_batch_uses_measurements_and_excludes_measured(tmp_path):
     assert len(updated_state.rounds) == 2
     assert updated_state.rounds[1]["stage"] == "acquisition"
     assert len(next_batch) == 3
-    assert set(next_batch["deepdraw_pool_index"]).isdisjoint(
-        set(initial_batch["deepdraw_pool_index"])
-    )
+    assert set(next_batch["variant_id"]).isdisjoint(set(initial_batch["variant_id"]))
     assert len(history) == len(initial_batch) + len(next_batch)
+    assert {"deepdraw_pool_index", "deepdraw_id"}.issubset(history.columns)
     assert reloaded.label_column == "Expression"
 
 
@@ -157,6 +151,6 @@ def test_dummy_example_files_drive_workflow(tmp_path):
     assert state.initial_selection_strategy == "probcover_euclidean"
     assert state.query_strategy == "botorch_mes"
     assert len(first_batch) == 12
-    assert list(first_batch["deepdraw_id"]) == list(measurements["deepdraw_id"])
+    assert list(first_batch["variant_id"]) == list(measurements["variant_id"])
     assert len(updated_state.rounds) == 2
     assert len(next_batch) == 12

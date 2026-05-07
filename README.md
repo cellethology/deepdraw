@@ -139,13 +139,13 @@ Send `round_000_to_measure.csv` to the wet lab.
 After the first experiment, create one cumulative measurements CSV, such as `measurements.csv`. The easiest approach is to copy `round_000_to_measure.csv` and add a measured label column.
 
 ```csv
-deepdraw_pool_index,deepdraw_id,variant_id,sequence,Expression
-1,variant_001,variant_001,ATGCGTACGTTAGCGA,1.42
-5,variant_005,variant_005,ATGCGTACGAAAGCGA,3.87
-9,variant_009,variant_009,ATGCGTACGCAAGTTA,5.11
+variant_id,sequence,Expression
+variant_001,ATGCGTACGTTAGCGA,1.42
+variant_005,ATGCGTACGAAAGCGA,3.87
+variant_009,ATGCGTACGCAAGTTA,5.11
 ```
 
-Keep either `deepdraw_id` or `deepdraw_pool_index`. Deepdraw uses those columns to map measurements back to the original design pool.
+Keep the stable ID column, such as `variant_id`, in every measurement update. Deepdraw uses that column to map measurements back to the original design pool.
 
 Keep updating this same file over time. After you measure `round_001_to_measure.csv`, append those new rows to `measurements.csv`; after `round_002_to_measure.csv`, append those rows too. Each `deepdraw suggest` call expects the measurements file to contain every previously recommended design with a measured label.
 

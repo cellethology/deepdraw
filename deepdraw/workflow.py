@@ -625,6 +625,7 @@ def _write_recommendation_outputs(
         selected_indices=selected_indices,
         round_num=round_num,
         stage=stage,
+        include_internal_columns=False,
     )
     output_path = state.output_path
     round_path = output_path / f"round_{round_num:03d}_to_measure.csv"
@@ -652,6 +653,7 @@ def _write_selection_history(
                 ],
                 round_num=int(round_record["round"]),
                 stage=str(round_record["stage"]),
+                include_internal_columns=True,
             )
         )
     history = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
@@ -665,6 +667,7 @@ def _build_recommendation_frame(
     selected_indices: list[int],
     round_num: int,
     stage: str,
+    include_internal_columns: bool,
 ) -> pd.DataFrame:
     selected_df = pool_df.iloc[selected_indices].copy()
     selected_df = selected_df.drop(
@@ -680,6 +683,9 @@ def _build_recommendation_frame(
         ],
         errors="ignore",
     )
+    if not include_internal_columns:
+        return selected_df
+
     selected_df.insert(
         0, DEEPDRAW_ID_COLUMN, [str(pool_ids[idx]) for idx in selected_indices]
     )

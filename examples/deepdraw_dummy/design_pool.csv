@@ -1,61 +1,61 @@
-variant_id,sequence,design_note
-variant_00,ATGCGTACAAAAAAAA,starter design 0
-variant_01,ATGCGTACCAAAAAAA,starter design 1
-variant_02,ATGCGTACGAAAAAAA,starter design 2
-variant_03,ATGCGTACTAAAAAAA,starter design 3
-variant_04,ATGCGTACACAAAAAA,starter design 4
-variant_05,ATGCGTACCCAAAAAA,starter design 5
-variant_06,ATGCGTACGCAAAAAA,starter design 6
-variant_07,ATGCGTACTCAAAAAA,starter design 7
-variant_08,ATGCGTACAGAAAAAA,starter design 8
-variant_09,ATGCGTACCGAAAAAA,starter design 9
-variant_10,ATGCGTACGGAAAAAA,starter design 10
-variant_11,ATGCGTACTGAAAAAA,starter design 11
-variant_12,ATGCGTACATAAAAAA,starter design 12
-variant_13,ATGCGTACCTAAAAAA,starter design 13
-variant_14,ATGCGTACGTAAAAAA,starter design 14
-variant_15,ATGCGTACTTAAAAAA,starter design 15
-variant_16,ATGCGTACAACAAAAA,starter design 16
-variant_17,ATGCGTACCACAAAAA,starter design 17
-variant_18,ATGCGTACGACAAAAA,starter design 18
-variant_19,ATGCGTACTACAAAAA,starter design 19
-variant_20,ATGCGTACACCAAAAA,starter design 20
-variant_21,ATGCGTACCCCAAAAA,starter design 21
-variant_22,ATGCGTACGCCAAAAA,starter design 22
-variant_23,ATGCGTACTCCAAAAA,starter design 23
-variant_24,ATGCGTACAGCAAAAA,starter design 24
-variant_25,ATGCGTACCGCAAAAA,starter design 25
-variant_26,ATGCGTACGGCAAAAA,starter design 26
-variant_27,ATGCGTACTGCAAAAA,starter design 27
-variant_28,ATGCGTACATCAAAAA,starter design 28
-variant_29,ATGCGTACCTCAAAAA,starter design 29
-variant_30,ATGCGTACGTCAAAAA,starter design 30
-variant_31,ATGCGTACTTCAAAAA,starter design 31
-variant_32,ATGCGTACAAGAAAAA,starter design 32
-variant_33,ATGCGTACCAGAAAAA,starter design 33
-variant_34,ATGCGTACGAGAAAAA,starter design 34
-variant_35,ATGCGTACTAGAAAAA,starter design 35
-variant_36,ATGCGTACACGAAAAA,starter design 36
-variant_37,ATGCGTACCCGAAAAA,starter design 37
-variant_38,ATGCGTACGCGAAAAA,starter design 38
-variant_39,ATGCGTACTCGAAAAA,starter design 39
-variant_40,ATGCGTACAGGAAAAA,starter design 40
-variant_41,ATGCGTACCGGAAAAA,starter design 41
-variant_42,ATGCGTACGGGAAAAA,starter design 42
-variant_43,ATGCGTACTGGAAAAA,starter design 43
-variant_44,ATGCGTACATGAAAAA,starter design 44
-variant_45,ATGCGTACCTGAAAAA,starter design 45
-variant_46,ATGCGTACGTGAAAAA,starter design 46
-variant_47,ATGCGTACTTGAAAAA,starter design 47
-variant_48,ATGCGTACAATAAAAA,starter design 48
-variant_49,ATGCGTACCATAAAAA,starter design 49
-variant_50,ATGCGTACGATAAAAA,starter design 50
-variant_51,ATGCGTACTATAAAAA,starter design 51
-variant_52,ATGCGTACACTAAAAA,starter design 52
-variant_53,ATGCGTACCCTAAAAA,starter design 53
-variant_54,ATGCGTACGCTAAAAA,starter design 54
-variant_55,ATGCGTACTCTAAAAA,starter design 55
-variant_56,ATGCGTACAGTAAAAA,starter design 56
-variant_57,ATGCGTACCGTAAAAA,starter design 57
-variant_58,ATGCGTACGGTAAAAA,starter design 58
-variant_59,ATGCGTACTGTAAAAA,starter design 59
+variant_id,sequence
+variant_00,ATGCGTACAAAAAAAA
+variant_01,ATGCGTACCAAAAAAA
+variant_02,ATGCGTACGAAAAAAA
+variant_03,ATGCGTACTAAAAAAA
+variant_04,ATGCGTACACAAAAAA
+variant_05,ATGCGTACCCAAAAAA
+variant_06,ATGCGTACGCAAAAAA
+variant_07,ATGCGTACTCAAAAAA
+variant_08,ATGCGTACAGAAAAAA
+variant_09,ATGCGTACCGAAAAAA
+variant_10,ATGCGTACGGAAAAAA
+variant_11,ATGCGTACTGAAAAAA
+variant_12,ATGCGTACATAAAAAA
+variant_13,ATGCGTACCTAAAAAA
+variant_14,ATGCGTACGTAAAAAA
+variant_15,ATGCGTACTTAAAAAA
+variant_16,ATGCGTACAACAAAAA
+variant_17,ATGCGTACCACAAAAA
+variant_18,ATGCGTACGACAAAAA
+variant_19,ATGCGTACTACAAAAA
+variant_20,ATGCGTACACCAAAAA
+variant_21,ATGCGTACCCCAAAAA
+variant_22,ATGCGTACGCCAAAAA
+variant_23,ATGCGTACTCCAAAAA
+variant_24,ATGCGTACAGCAAAAA
+variant_25,ATGCGTACCGCAAAAA
+variant_26,ATGCGTACGGCAAAAA
+variant_27,ATGCGTACTGCAAAAA
+variant_28,ATGCGTACATCAAAAA
+variant_29,ATGCGTACCTCAAAAA
+variant_30,ATGCGTACGTCAAAAA
+variant_31,ATGCGTACTTCAAAAA
+variant_32,ATGCGTACAAGAAAAA
+variant_33,ATGCGTACCAGAAAAA
+variant_34,ATGCGTACGAGAAAAA
+variant_35,ATGCGTACTAGAAAAA
+variant_36,ATGCGTACACGAAAAA
+variant_37,ATGCGTACCCGAAAAA
+variant_38,ATGCGTACGCGAAAAA
+variant_39,ATGCGTACTCGAAAAA
+variant_40,ATGCGTACAGGAAAAA
+variant_41,ATGCGTACCGGAAAAA
+variant_42,ATGCGTACGGGAAAAA
+variant_43,ATGCGTACTGGAAAAA
+variant_44,ATGCGTACATGAAAAA
+variant_45,ATGCGTACCTGAAAAA
+variant_46,ATGCGTACGTGAAAAA
+variant_47,ATGCGTACTTGAAAAA
+variant_48,ATGCGTACAATAAAAA
+variant_49,ATGCGTACCATAAAAA
+variant_50,ATGCGTACGATAAAAA
+variant_51,ATGCGTACTATAAAAA
+variant_52,ATGCGTACACTAAAAA
+variant_53,ATGCGTACCCTAAAAA
+variant_54,ATGCGTACGCTAAAAA
+variant_55,ATGCGTACTCTAAAAA
+variant_56,ATGCGTACAGTAAAAA
+variant_57,ATGCGTACCGTAAAAA
+variant_58,ATGCGTACGGTAAAAA
+variant_59,ATGCGTACTGTAAAAA
