@@ -86,6 +86,45 @@ def test_core_set_initial_selection_handles_empty_dataset():
     assert indices == []
 
 
+def test_initial_selection_log_omits_missing_labels(caplog):
+    dataset = Dataset(
+        sample_ids=["sample_0", "sample_1", "sample_2", "sample_3"],
+        labels=np.full(4, np.nan),
+        embeddings=np.array(
+            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [2.0, 2.0]],
+            dtype=float,
+        ),
+    )
+    strategy = CoreSetInitialSelection(
+        seed=0, starting_batch_size=2, density_neighbors=1
+    )
+
+    caplog.set_level("INFO", logger="core.initial_selection_strategies")
+    strategy.select(dataset)
+
+    assert "CORESET_INITIAL: selected 2 sequences." in caplog.text
+    assert "Labels:" not in caplog.text
+
+
+def test_initial_selection_log_keeps_available_labels(caplog):
+    dataset = Dataset(
+        sample_ids=["sample_0", "sample_1", "sample_2", "sample_3"],
+        labels=np.array([1.0, 2.0, 3.0, 4.0]),
+        embeddings=np.array(
+            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [2.0, 2.0]],
+            dtype=float,
+        ),
+    )
+    strategy = CoreSetInitialSelection(
+        seed=0, starting_batch_size=2, density_neighbors=1
+    )
+
+    caplog.set_level("INFO", logger="core.initial_selection_strategies")
+    strategy.select(dataset)
+
+    assert "CORESET_INITIAL: selected 2 sequences. Labels:" in caplog.text
+
+
 def test_core_set_initial_selection_handles_density_none(monkeypatch):
     embeddings = np.array(
         [

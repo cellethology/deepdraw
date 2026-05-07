@@ -30,6 +30,41 @@ class InitialSelectionStrategy(ABC):
         """Return indices for the initial training pool."""
 
 
+def _log_initial_selection(
+    *,
+    strategy_name: str,
+    selected_indices: list[int],
+    labels: np.ndarray,
+) -> None:
+    label_text = _format_available_labels(labels)
+    if label_text is None:
+        logger.info(
+            "%s_INITIAL: selected %d sequences.",
+            strategy_name.upper(),
+            len(selected_indices),
+        )
+        return
+
+    logger.info(
+        "%s_INITIAL: selected %d sequences. Labels: [%s]",
+        strategy_name.upper(),
+        len(selected_indices),
+        label_text,
+    )
+
+
+def _format_available_labels(labels: np.ndarray) -> str | None:
+    try:
+        numeric_labels = np.asarray(labels, dtype=float)
+    except (TypeError, ValueError):
+        return None
+    if not np.any(np.isfinite(numeric_labels)):
+        return None
+    return ", ".join(
+        f"{value:.3f}" if np.isfinite(value) else "nan" for value in numeric_labels
+    )
+
+
 class RandomInitialSelection(InitialSelectionStrategy):
     """Randomly sample the initial training points."""
 
@@ -60,11 +95,10 @@ class KMeansInitialSelection(InitialSelectionStrategy):
     ) -> list[int]:
         selected = self.kmeans_initial_selection(embeddings=dataset.embeddings)
 
-        labels = dataset.labels[selected]
-        logger.info(
-            "KMEANS_INITIAL: selected %d sequences. Labels: [%s]",
-            len(selected),
-            ", ".join(f"{val:.3f}" for val in labels),
+        _log_initial_selection(
+            strategy_name=self.name,
+            selected_indices=selected,
+            labels=dataset.labels[selected],
         )
 
         return selected
@@ -104,12 +138,10 @@ class CoreSetInitialSelection(InitialSelectionStrategy):
     ) -> list[int]:
         selected = self.k_center_greedy(dataset.embeddings)
 
-        labels = dataset.labels[selected]
-        logger.info(
-            "%s_INITIAL: selected %d sequences. Labels: [%s]",
-            self.name.upper(),
-            len(selected),
-            ", ".join(f"{val:.3f}" for val in labels),
+        _log_initial_selection(
+            strategy_name=self.name,
+            selected_indices=selected,
+            labels=dataset.labels[selected],
         )
 
         return selected
@@ -295,12 +327,10 @@ class TypiClustInitialSelection(InitialSelectionStrategy):
                 self._sample_fallback_indices(available, target - len(selected))
             )
 
-        labels_selected = dataset.labels[selected]
-        logger.info(
-            "%s_INITIAL: selected %d sequences. Labels: [%s]",
-            self.name.upper(),
-            len(selected),
-            ", ".join(f"{val:.3f}" for val in labels_selected),
+        _log_initial_selection(
+            strategy_name=self.name,
+            selected_indices=selected,
+            labels=dataset.labels[selected],
         )
         return selected
 
@@ -424,12 +454,10 @@ class ProbCoverInitialSelection(InitialSelectionStrategy):
         x_edges, y_edges = self._construct_graph(embeddings)
         selected = self._greedy_cover(x_edges, y_edges, num_samples, target)
 
-        labels = dataset.labels[selected]
-        logger.info(
-            "%s_INITIAL: selected %d sequences. Labels: [%s]",
-            self.name.upper(),
-            len(selected),
-            ", ".join(f"{val:.3f}" for val in labels),
+        _log_initial_selection(
+            strategy_name=self.name,
+            selected_indices=selected,
+            labels=dataset.labels[selected],
         )
         return selected
 
