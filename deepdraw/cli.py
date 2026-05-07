@@ -88,11 +88,21 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    log_level = getattr(args, "log_level", "INFO")
     logging.basicConfig(
-        level=getattr(logging, getattr(args, "log_level", "INFO")),
+        level=getattr(logging, log_level),
         format="%(message)s",
     )
 
+    try:
+        _run_command(args, parser)
+    except (OSError, ValueError) as exc:
+        if log_level == "DEBUG":
+            raise
+        parser.exit(1, f"Error: {exc}\n")
+
+
+def _run_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
     if args.command == "init":
         state = initialize_run(
             pool_csv=args.pool_csv,
