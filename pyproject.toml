@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "gene-circuit-design"
+name = "deepdraw"
 version = "0.1.0"
 description = "Active learning for genetic circuit design"
 readme = "README.md"
@@ -43,9 +43,9 @@ cluster = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/cellethology/gene-circuit-design"
-Repository = "https://github.com/cellethology/gene-circuit-design.git"
-Issues = "https://github.com/cellethology/gene-circuit-design/issues"
+Homepage = "https://github.com/cellethology/deepdraw"
+Repository = "https://github.com/cellethology/deepdraw.git"
+Issues = "https://github.com/cellethology/deepdraw/issues"
 
 [project.scripts]
 deepdraw = "deepdraw.cli:main"

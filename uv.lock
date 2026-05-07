@@ -500,7 +500,7 @@ wheels = [
 ]
 
 [[package]]
-name = "gene-circuit-design"
+name = "deepdraw"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

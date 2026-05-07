@@ -1,7 +1,7 @@
 # Deepdraw: genetic circuit design with genomic foundation model
 
-[![CI](https://github.com/cellethology/gene_circuit_design/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/cellethology/gene_circuit_design/actions/workflows/pre-commit.yml)
-[![Coverage](https://img.shields.io/codecov/c/github/cellethology/gene_circuit_design?logo=codecov)](https://codecov.io/gh/cellethology/gene_circuit_design)
+[![CI](https://github.com/cellethology/deepdraw/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/cellethology/deepdraw/actions/workflows/pre-commit.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/cellethology/deepdraw?logo=codecov)](https://codecov.io/gh/cellethology/deepdraw)
 
 Deepdraw is an active learning algorithm for genetic circuit design. It uses genomic foundation model (GFM) embeddings to make accurate predictions from very few experimental observations. At each iteration, Deepdraw integrates measurements from previous rounds with sequence-level circuit embeddings and proposes informative candidate designs in practical batches of 12, a 100-fold reduction relative to prior active learning approaches for circuit design.
 
@@ -14,8 +14,8 @@ This README is for users who want to apply Deepdraw to their own design pool. Re
 Prerequisites: Git, Python, and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone git@github.com:cellethology/gene_circuit_design.git
-cd gene_circuit_design
+git clone git@github.com:cellethology/deepdraw.git
+cd deepdraw
 
 uv sync --python 3.10
 uv run deepdraw --help
