@@ -32,7 +32,6 @@ SELECTION_HISTORY_FILENAME = "selection_history.csv"
 DEEPDRAW_ID_COLUMN = "deepdraw_id"
 DEEPDRAW_POOL_INDEX_COLUMN = "deepdraw_pool_index"
 DEEPDRAW_ROUND_COLUMN = "deepdraw_round"
-DEEPDRAW_STAGE_COLUMN = "deepdraw_stage"
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _CONFIG_ROOT = _REPO_ROOT / "job_sub" / "conf"
@@ -160,7 +159,6 @@ def initialize_run(
         pool_ids=pool_ids,
         selected_indices=selected_indices,
         round_num=0,
-        stage="initial",
     )
     _write_selection_history(state=state, pool_df=pool_df, pool_ids=pool_ids)
     return state
@@ -280,7 +278,6 @@ def suggest_next_batch(
         pool_ids=pool_ids,
         selected_indices=selected_indices,
         round_num=round_num,
-        stage="acquisition",
     )
     _write_selection_history(state=state, pool_df=pool_df, pool_ids=pool_ids)
     return state
@@ -617,14 +614,12 @@ def _write_recommendation_outputs(
     pool_ids: np.ndarray,
     selected_indices: list[int],
     round_num: int,
-    stage: str,
 ) -> Path:
     frame = _build_recommendation_frame(
         pool_df=pool_df,
         pool_ids=pool_ids,
         selected_indices=selected_indices,
         round_num=round_num,
-        stage=stage,
         include_internal_columns=False,
     )
     output_path = state.output_path
@@ -652,7 +647,6 @@ def _write_selection_history(
                     int(idx) for idx in round_record["selected_pool_indices"]
                 ],
                 round_num=int(round_record["round"]),
-                stage=str(round_record["stage"]),
                 include_internal_columns=True,
             )
         )
@@ -666,7 +660,6 @@ def _build_recommendation_frame(
     pool_ids: np.ndarray,
     selected_indices: list[int],
     round_num: int,
-    stage: str,
     include_internal_columns: bool,
 ) -> pd.DataFrame:
     selected_df = pool_df.iloc[selected_indices].copy()
@@ -675,7 +668,6 @@ def _build_recommendation_frame(
             column
             for column in (
                 DEEPDRAW_ROUND_COLUMN,
-                DEEPDRAW_STAGE_COLUMN,
                 DEEPDRAW_POOL_INDEX_COLUMN,
                 DEEPDRAW_ID_COLUMN,
             )
@@ -692,7 +684,6 @@ def _build_recommendation_frame(
     selected_df.insert(
         0, DEEPDRAW_POOL_INDEX_COLUMN, [int(idx) for idx in selected_indices]
     )
-    selected_df.insert(0, DEEPDRAW_STAGE_COLUMN, stage)
     selected_df.insert(0, DEEPDRAW_ROUND_COLUMN, round_num)
     return selected_df
 
