@@ -87,7 +87,7 @@ def initialize_run(
     batch_size: int = 12,
     seed: int = 0,
     predictor_name: str = "botorch_gp",
-    query_strategy_name: str = "botorch_qlog_nei",
+    query_strategy_name: str = "botorch_mes",
     initial_selection_strategy_name: str = "probcover_euclidean",
     feature_transforms_name: str = "standardize",
     target_transforms_name: str = "log_standardize",

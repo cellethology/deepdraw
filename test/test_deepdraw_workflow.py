@@ -70,6 +70,23 @@ def test_initialize_run_writes_initial_batch_without_labels(tmp_path):
     assert (run_dir / "selection_history.csv").exists()
 
 
+def test_initialize_run_defaults_to_botorch_mes_query_strategy(tmp_path):
+    pool_path, embeddings_path = _write_pool_and_embeddings(tmp_path)
+
+    state = initialize_run(
+        pool_csv=pool_path,
+        embeddings_path=embeddings_path,
+        output_dir=tmp_path / "default_query_run",
+        sequence_column="sequence",
+        id_column="variant_id",
+        starting_batch_size=3,
+        batch_size=2,
+        initial_selection_strategy_name="random",
+    )
+
+    assert state.query_strategy == "botorch_mes"
+
+
 def test_suggest_next_batch_uses_measurements_and_excludes_measured(tmp_path):
     state = _initialize_small_run(tmp_path)
     run_dir = Path(state.output_dir)

@@ -199,7 +199,7 @@ The default workflow uses:
 
 - initial selection: `probcover_euclidean`
 - predictor: `botorch_gp`
-- query strategy: `botorch_qlog_nei`
+- query strategy: `botorch_mes`
 - feature transforms: `standardize`
 - target transforms: `log_standardize`
 

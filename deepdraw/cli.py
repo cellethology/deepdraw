@@ -46,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_parser.add_argument(
         "--query-strategy",
-        default="botorch_qlog_nei",
+        default="botorch_mes",
         help="Name under job_sub/conf/query_strategy without .yaml.",
     )
     init_parser.add_argument(
