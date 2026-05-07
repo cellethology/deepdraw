@@ -133,6 +133,8 @@ runs/my_deepdraw_run/
 ```
 
 Send `round_000_to_measure.csv` to the wet lab.
+Recommendation CSVs keep the original design-pool columns; `selection_history.csv`
+adds only `deepdraw_round` so you can see which batch each design came from.
 
 ### 4. Add Measurements
 

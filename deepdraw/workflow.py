@@ -165,11 +165,10 @@ def initialize_run(
     _write_recommendation_outputs(
         state=state,
         pool_df=pool_df,
-        pool_ids=pool_ids,
         selected_indices=selected_indices,
         round_num=0,
     )
-    _write_selection_history(state=state, pool_df=pool_df, pool_ids=pool_ids)
+    _write_selection_history(state=state, pool_df=pool_df)
     return state
 
 
@@ -306,11 +305,10 @@ def suggest_next_batch(
     _write_recommendation_outputs(
         state=state,
         pool_df=pool_df,
-        pool_ids=pool_ids,
         selected_indices=selected_indices,
         round_num=round_num,
     )
-    _write_selection_history(state=state, pool_df=pool_df, pool_ids=pool_ids)
+    _write_selection_history(state=state, pool_df=pool_df)
     return state
 
 
@@ -675,16 +673,14 @@ def _write_recommendation_outputs(
     *,
     state: DeepdrawState,
     pool_df: pd.DataFrame,
-    pool_ids: np.ndarray,
     selected_indices: list[int],
     round_num: int,
 ) -> Path:
     frame = _build_recommendation_frame(
         pool_df=pool_df,
-        pool_ids=pool_ids,
         selected_indices=selected_indices,
         round_num=round_num,
-        include_internal_columns=False,
+        include_round_column=False,
     )
     output_path = state.output_path
     round_path = output_path / f"round_{round_num:03d}_to_measure.csv"
@@ -699,19 +695,17 @@ def _write_selection_history(
     *,
     state: DeepdrawState,
     pool_df: pd.DataFrame,
-    pool_ids: np.ndarray,
 ) -> None:
     frames = []
     for round_record in state.rounds:
         frames.append(
             _build_recommendation_frame(
                 pool_df=pool_df,
-                pool_ids=pool_ids,
                 selected_indices=[
                     int(idx) for idx in round_record["selected_pool_indices"]
                 ],
                 round_num=int(round_record["round"]),
-                include_internal_columns=True,
+                include_round_column=True,
             )
         )
     history = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
@@ -725,10 +719,9 @@ def _write_selection_history(
 def _build_recommendation_frame(
     *,
     pool_df: pd.DataFrame,
-    pool_ids: np.ndarray,
     selected_indices: list[int],
     round_num: int,
-    include_internal_columns: bool,
+    include_round_column: bool,
 ) -> pd.DataFrame:
     selected_df = pool_df.iloc[selected_indices].copy()
     selected_df = selected_df.drop(
@@ -743,16 +736,8 @@ def _build_recommendation_frame(
         ],
         errors="ignore",
     )
-    if not include_internal_columns:
-        return selected_df
-
-    selected_df.insert(
-        0, DEEPDRAW_ID_COLUMN, [str(pool_ids[idx]) for idx in selected_indices]
-    )
-    selected_df.insert(
-        0, DEEPDRAW_POOL_INDEX_COLUMN, [int(idx) for idx in selected_indices]
-    )
-    selected_df.insert(0, DEEPDRAW_ROUND_COLUMN, round_num)
+    if include_round_column:
+        selected_df.insert(0, DEEPDRAW_ROUND_COLUMN, round_num)
     return selected_df
 
 

@@ -106,8 +106,12 @@ def test_suggest_next_batch_uses_measurements_and_excludes_measured(tmp_path):
     assert len(next_batch) == 3
     assert set(next_batch["variant_id"]).isdisjoint(set(initial_batch["variant_id"]))
     assert len(history) == len(initial_batch) + len(next_batch)
-    assert {"deepdraw_pool_index", "deepdraw_id"}.issubset(history.columns)
-    assert "deepdraw_stage" not in history.columns
+    assert list(history.columns) == [
+        "deepdraw_round",
+        "variant_id",
+        "sequence",
+        "notes",
+    ]
     assert reloaded.label_column == "Expression"
 
 
