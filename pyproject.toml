@@ -48,10 +48,14 @@ Repository = "https://github.com/cellethology/gene-circuit-design.git"
 Issues = "https://github.com/cellethology/gene-circuit-design/issues"
 
 [project.scripts]
+deepdraw = "deepdraw.cli:main"
 run-active-learning = "run_experiments:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["utils"]
+packages = ["core", "deepdraw", "job_sub", "utils"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"job_sub/conf" = "job_sub/conf"
 
 [tool.uv]
 index-url = "https://pypi.org/simple"

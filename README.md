@@ -21,20 +21,65 @@ uv sync --python 3.10
 pre-commit install
 ```
 
-### Usage
+### Using Deepdraw With a New Design Pool
 
-The main entry point is [job_sub/run_config.py](job_sub/run_config.py), which reads dataset definitions from [job_sub/datasets/datasets.yaml](job_sub/datasets/datasets.yaml) and runs experiments either locally (`submitit_local`) or on a Slurm cluster (`submitit_slurm`).
+Deepdraw can now be run as a real experimental active-learning loop, not only as
+a retrospective benchmark. Start with:
+
+- a CSV design pool containing one row per candidate sequence
+- an embeddings NPZ for the same rows, with arrays named `embeddings` and `ids`
+  (or `sample_ids`)
+- no expression labels yet
+
+Create the first batch to measure:
+
+```bash
+deepdraw init \
+  --pool-csv designs.csv \
+  --embeddings embeddings.npz \
+  --sequence-column sequence \
+  --output-dir runs/my_deepdraw_run \
+  --starting-batch-size 24 \
+  --batch-size 24
+```
+
+This writes:
+
+- `runs/my_deepdraw_run/round_000_to_measure.csv`
+- `runs/my_deepdraw_run/latest_recommendations.csv`
+- `runs/my_deepdraw_run/deepdraw_state.json`
+- `runs/my_deepdraw_run/selection_history.csv`
+
+After measuring that first batch, add the measured values to a CSV that keeps
+either `deepdraw_id` or `deepdraw_pool_index` from the recommendation file, then
+ask Deepdraw for the next batch:
+
+```bash
+deepdraw suggest \
+  --run-dir runs/my_deepdraw_run \
+  --measurements measurements.csv \
+  --label-column expression
+```
+
+Repeat `deepdraw suggest` as the measurement table grows. The CLI reuses the
+same model, query strategy, batch size, seed, and transform settings recorded in
+`deepdraw_state.json`.
+
+The retrospective benchmark entry point is still [job_sub/run_config.py](job_sub/run_config.py). It reads dataset definitions from [job_sub/datasets/datasets.yaml](job_sub/datasets/datasets.yaml) and runs experiments either locally (`submitit_local`) or on a Slurm cluster (`submitit_slurm`).
 
 ## How It Works
 
-1. **Load Data**: Pre-computed embeddings (NPZ) + metadata (CSV) with expression labels
-2. **Initial Selection**: Select starting samples using strategy (Random, K-means, CoreSet, ProbCover)
+1. **Load Data**: Pre-computed embeddings (NPZ) + a design pool CSV
+2. **Initial Selection**: Select starting samples using strategy (Random, K-means, CoreSet, ProbCover) without requiring labels
 3. **Active Learning Loop**:
    - Train a predictor on labeled samples
    - Use query strategy to select next batch of informative samples
    - Add selected samples to labeled pool
    - Repeat for N rounds
-4. **Track Performance**: Monitor metrics (Spearman correlation, top discoveries) across rounds
+4. **Track Recommendations**: Save each recommended batch and the full selection history
+
+For retrospective experiments, Deepdraw also computes metrics such as Spearman
+correlation and top-discovery rates because all labels are already known.
 
 ## Configuration
 
@@ -231,10 +276,13 @@ python plotting/averaged_performance_analysis.py \
 ```python
 # embeddings.npz structure:
 {
-  'sample_ids': ['seq_001', 'seq_002', ...],  # Shape: (N,)
-  'embeddings': np.array([...])                # Shape: (N, embedding_dim)
+  'ids': [0, 1, 2, ...],         # Shape: (N,), row ids from the pool CSV
+  'embeddings': np.array([...])  # Shape: (N, embedding_dim)
 }
 ```
+
+`deepdraw init` also accepts `sample_ids` instead of `ids`. If your pool has a
+stable identifier column, pass `--id-column`; otherwise Deepdraw uses row indices.
 
 ### Metadata (CSV format)
 ```csv
