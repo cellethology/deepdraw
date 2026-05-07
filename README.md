@@ -21,6 +21,12 @@ uv sync --python 3.10
 uv run deepdraw --help
 ```
 
+Plain `uv sync` installs the user-facing Deepdraw runtime. If you are developing the package and want test, lint, notebook, and plotting tools, include the dev group:
+
+```bash
+uv sync --python 3.10 --group dev
+```
+
 If you are testing the current development branch before it is merged:
 
 ```bash

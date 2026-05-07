@@ -57,6 +57,7 @@ packages = ["core", "deepdraw", "job_sub", "utils"]
 "job_sub/conf" = "job_sub/conf"
 
 [tool.uv]
+default-groups = []
 index-url = "https://pypi.org/simple"
 
 [[tool.uv.index]]
