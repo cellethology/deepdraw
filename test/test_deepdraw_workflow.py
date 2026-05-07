@@ -114,3 +114,42 @@ def test_suggest_requires_labels_for_previous_recommendations(tmp_path):
             measurements_csv=measurements_path,
             label_column="Expression",
         )
+
+
+def test_dummy_example_files_drive_workflow(tmp_path):
+    example_dir = Path(__file__).resolve().parents[1] / "examples" / "deepdraw_dummy"
+    run_dir = tmp_path / "dummy_run"
+
+    state = initialize_run(
+        pool_csv=example_dir / "design_pool.csv",
+        embeddings_path=example_dir / "embeddings.npz",
+        output_dir=run_dir,
+        sequence_column="sequence",
+        id_column="variant_id",
+        starting_batch_size=4,
+        batch_size=3,
+        seed=11,
+        initial_selection_strategy_name="random",
+        predictor_name="ridge_regressor",
+        query_strategy_name="topk",
+        feature_transforms_name="none",
+        target_transforms_name="none",
+    )
+    first_batch = pd.read_csv(run_dir / "round_000_to_measure.csv")
+
+    updated_state = suggest_next_batch(
+        run_dir=run_dir,
+        measurements_csv=example_dir / "measurements_round0.csv",
+        label_column="Expression",
+    )
+    next_batch = pd.read_csv(run_dir / "round_001_to_measure.csv")
+
+    assert state.rounds[0]["selected_pool_indices"] == [1, 5, 9, 8]
+    assert list(first_batch["deepdraw_id"]) == [
+        "variant_01",
+        "variant_05",
+        "variant_09",
+        "variant_08",
+    ]
+    assert len(updated_state.rounds) == 2
+    assert len(next_batch) == 3

@@ -1,0 +1,13 @@
+variant_id,sequence,design_note
+variant_00,ATGCGTACGTTAGCGA,starter design 0
+variant_01,ATGCGTACGATAGCAA,starter design 1
+variant_02,ATGCGTACGCTAGCTA,starter design 2
+variant_03,ATGCGTACGGTAGCGT,starter design 3
+variant_04,ATGCGTACGTTAGTTA,starter design 4
+variant_05,ATGCGTACGAAAGCGA,starter design 5
+variant_06,ATGCGTACGCCAGCAA,starter design 6
+variant_07,ATGCGTACGGGAGCTA,starter design 7
+variant_08,ATGCGTACGTAAGCGT,starter design 8
+variant_09,ATGCGTACGCAAGTTA,starter design 9
+variant_10,ATGCGTACGGAAGCGA,starter design 10
+variant_11,ATGCGTACGTCAGCAA,starter design 11
