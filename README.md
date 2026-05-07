@@ -45,7 +45,7 @@ Deepdraw writes the first batch to:
 deepdraw_run/round_000_to_measure.csv
 ```
 
-Now simulate receiving measurements from the first experimental round:
+Now simulate receiving measurements from the first experimental round. In a real project, this should be a cumulative file, for example `measurements.csv`, that you keep appending to after each round. The dummy example provides the first version as `measurements_round0.csv`.
 
 ```bash
 uv run deepdraw suggest \
@@ -54,7 +54,7 @@ uv run deepdraw suggest \
   --label-column Expression
 ```
 
-Deepdraw trains on the measured designs and writes the next batch to:
+Deepdraw trains on all rows in the measurement file and writes the next batch to:
 
 ```text
 deepdraw_run/round_001_to_measure.csv
@@ -123,7 +123,7 @@ Send `round_000_to_measure.csv` to the wet lab.
 
 ### 4. Add Measurements
 
-After the first experiment, create a measurements CSV. The easiest approach is to copy `round_000_to_measure.csv` and add a measured label column.
+After the first experiment, create one cumulative measurements CSV, such as `measurements.csv`. The easiest approach is to copy `round_000_to_measure.csv` and add a measured label column.
 
 ```csv
 deepdraw_pool_index,deepdraw_id,variant_id,sequence,Expression
@@ -134,9 +134,11 @@ deepdraw_pool_index,deepdraw_id,variant_id,sequence,Expression
 
 Keep either `deepdraw_id` or `deepdraw_pool_index`. Deepdraw uses those columns to map measurements back to the original design pool.
 
+Keep updating this same file over time. After you measure `round_001_to_measure.csv`, append those new rows to `measurements.csv`; after `round_002_to_measure.csv`, append those rows too. Each `deepdraw suggest` call expects the measurements file to contain every previously recommended design with a measured label.
+
 ### 5. Select The Next Batch
 
-Run `deepdraw suggest` with the measurement table:
+Run `deepdraw suggest` with the cumulative measurement table:
 
 ```bash
 uv run deepdraw suggest \
@@ -151,7 +153,22 @@ This writes:
 runs/my_deepdraw_run/round_001_to_measure.csv
 ```
 
-Measure that batch, append the new labels to `measurements.csv`, and run `deepdraw suggest` again. The loop is:
+Measure that batch, append the new labels to the same `measurements.csv`, and run `deepdraw suggest` again:
+
+```bash
+uv run deepdraw suggest \
+  --run-dir runs/my_deepdraw_run \
+  --measurements measurements.csv \
+  --label-column Expression
+```
+
+The next output will be:
+
+```text
+runs/my_deepdraw_run/round_002_to_measure.csv
+```
+
+The loop is:
 
 ```text
 design pool + embeddings
@@ -167,6 +184,12 @@ deepdraw suggest
         |
         v
 measure round_001
+        |
+        v
+append round_001 labels to measurements.csv
+        |
+        v
+deepdraw suggest
         |
         v
 repeat
@@ -279,7 +302,7 @@ Required/common arguments:
 - `--sequence-column`: sequence column in the design pool CSV.
 - `--id-column`: optional stable design ID column in the pool CSV.
 - `--output-dir`: run directory where Deepdraw writes state and recommendations. Defaults to `deepdraw_run`.
-- `--measurements`: CSV containing measured labels from previous recommendations.
+- `--measurements`: cumulative CSV containing measured labels for all previous Deepdraw recommendations.
 - `--label-column`: measured target column, such as `Expression` or `Fold Change`.
 
 ## Repository Layout

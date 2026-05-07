@@ -13,7 +13,7 @@ uv run deepdraw init \
   --id-column variant_id
 ```
 
-Then simulate the first measurement update:
+Then simulate the first measurement update. In a real project, this file should be cumulative: keep one `measurements.csv` and append newly measured rows after each round.
 
 ```bash
 uv run deepdraw suggest \
@@ -22,7 +22,9 @@ uv run deepdraw suggest \
   --label-column Expression
 ```
 
-The command above uses the same defaults as a real run, and `measurements_round0.csv` matches its first-round recommendations. For a faster smoke test, use a separate output directory and add:
+The command above uses the same defaults as a real run, and `measurements_round0.csv` matches its first-round recommendations. After measuring `deepdraw_run/round_001_to_measure.csv`, append those rows to the same measurements file and run `deepdraw suggest` again to get round 2.
+
+For a faster smoke test, use a separate output directory and add:
 
 ```bash
 --output-dir /tmp/deepdraw_dummy_fast_run \
