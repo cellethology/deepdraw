@@ -27,6 +27,13 @@ Plain `uv sync` installs the user-facing Deepdraw runtime. If you are developing
 uv sync --python 3.10 --group dev
 ```
 
+Optional retrospective analysis and cluster-job tooling can be added only when needed:
+
+```bash
+uv sync --extra analysis
+uv sync --extra cluster
+```
+
 If you are testing the current development branch before it is merged:
 
 ```bash
