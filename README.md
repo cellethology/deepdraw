@@ -29,7 +29,7 @@ git checkout codex/deepdraw-user-workflow
 
 ### 2. Run The Dummy Example
 
-The fastest way to verify the workflow is to run the bundled dummy example. It includes a 24-sequence design pool, a matching embeddings file, and fake first-round measurements.
+The fastest way to verify the workflow is to run the bundled dummy example. It includes a 60-sequence design pool, a matching embeddings file, and fake first-round measurements.
 
 ```bash
 uv run deepdraw init \

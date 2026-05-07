@@ -1,6 +1,6 @@
 # Deepdraw Dummy Workflow
 
-This directory contains a tiny 24-design pool and matching embeddings for checking
+This directory contains a tiny 60-design pool and matching embeddings for checking
 the user-facing Deepdraw loop without any real experimental data.
 
 Run the first batch selection:

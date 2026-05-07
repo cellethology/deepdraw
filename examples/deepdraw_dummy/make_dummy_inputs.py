@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parent
 POOL_PATH = ROOT / "design_pool.csv"
 EMBEDDINGS_PATH = ROOT / "embeddings.npz"
 MEASUREMENTS_PATH = ROOT / "measurements_round0.csv"
-NUM_DESIGNS = 24
+NUM_DESIGNS = 60
+ROUND0_POOL_INDICES = [52, 3, 10, 17, 24, 31, 38, 45, 56, 20, 30, 42]
 
 
 def main() -> None:
@@ -42,35 +43,9 @@ def main() -> None:
 
     measurements = pd.DataFrame(
         {
-            "deepdraw_pool_index": [7, 14, 1, 18, 21, 10, 2, 5, 9, 13, 23, 0],
-            "deepdraw_id": [
-                "variant_07",
-                "variant_14",
-                "variant_01",
-                "variant_18",
-                "variant_21",
-                "variant_10",
-                "variant_02",
-                "variant_05",
-                "variant_09",
-                "variant_13",
-                "variant_23",
-                "variant_00",
-            ],
-            "Expression": [
-                3.5,
-                5.8,
-                1.3,
-                6.6,
-                7.2,
-                4.4,
-                1.7,
-                2.8,
-                4.1,
-                5.5,
-                7.8,
-                1.0,
-            ],
+            "deepdraw_pool_index": ROUND0_POOL_INDICES,
+            "deepdraw_id": [f"variant_{idx:02d}" for idx in ROUND0_POOL_INDICES],
+            "Expression": [_dummy_expression(idx) for idx in ROUND0_POOL_INDICES],
         }
     )
     measurements.to_csv(MEASUREMENTS_PATH, index=False)
@@ -89,6 +64,10 @@ def _sequence_for(idx: int) -> str:
         suffix.append(alphabet[value % len(alphabet)])
         value //= len(alphabet)
     return "ATGCGTAC" + "".join(suffix)
+
+
+def _dummy_expression(idx: int) -> float:
+    return round(1.0 + idx * 0.31, 2)
 
 
 if __name__ == "__main__":
