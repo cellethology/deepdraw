@@ -293,6 +293,7 @@ Common override flags:
 - `--query-strategy`: acquisition strategy for later rounds, such as `botorch_mes`, `botorch_qlog_nei`, or `topk`.
 - `--feature-transforms`: feature preprocessing config, such as `standardize` or `none`.
 - `--target-transforms`: label preprocessing config, such as `log_standardize` or `none`.
+- `--log-level`: progress output verbosity; default is `INFO`, use `WARNING` for quieter runs.
 
 ## CLI Reference
 

@@ -95,6 +95,7 @@ def initialize_run(
     """Create a Deepdraw run and write the initial batch to measure."""
 
     output_path = Path(output_dir).expanduser().resolve()
+    logger.info("Deepdraw init: creating run in %s", output_path)
     state_path = output_path / STATE_FILENAME
     if state_path.exists() and not force:
         raise FileExistsError(
@@ -128,7 +129,14 @@ def initialize_run(
         labels=np.full(len(pool_ids), np.nan),
         embeddings=embeddings,
     )
+    logger.info(
+        "Selecting initial batch with '%s' (%d designs, batch size %d).",
+        initial_selection_strategy_name,
+        len(pool_ids),
+        starting_batch_size,
+    )
     selected_indices = initial_selection.select(dataset)
+    logger.info("Selected %d designs for round 0.", len(selected_indices))
 
     state = DeepdrawState(
         pool_csv=str(Path(pool_csv).expanduser().resolve()),
@@ -153,6 +161,7 @@ def initialize_run(
         pool_ids=pool_ids,
     )
     save_state(state)
+    logger.info("Saving run state and recommendation files in %s", output_path)
     _write_recommendation_outputs(
         state=state,
         pool_df=pool_df,
@@ -173,6 +182,7 @@ def suggest_next_batch(
 ) -> DeepdrawState:
     """Train on measured designs and write the next batch to measure."""
 
+    logger.info("Deepdraw suggest: loading run from %s", Path(run_dir).resolve())
     state = load_state(run_dir)
     if label_column is None:
         label_column = state.label_column
@@ -213,6 +223,12 @@ def suggest_next_batch(
     labels = np.full(len(pool_ids), np.nan)
     train_indices = sorted(measured_labels)
     labels[train_indices] = [measured_labels[idx] for idx in train_indices]
+    unmeasured_count = len(pool_ids) - len(train_indices)
+    logger.info(
+        "Prepared training data: %d measured designs, %d unmeasured candidates.",
+        len(train_indices),
+        unmeasured_count,
+    )
 
     dataset = Dataset(
         sample_ids=pool_ids.tolist(),
@@ -224,6 +240,7 @@ def suggest_next_batch(
         al_settings=_build_al_settings_for_state(state),
     )
     if feature_transforms:
+        logger.info("Applying feature transforms: %s", state.feature_transforms)
         feature_pipeline = Pipeline(feature_transforms)
         dataset.embeddings = feature_pipeline.fit_transform(dataset.embeddings)
 
@@ -247,10 +264,16 @@ def suggest_next_batch(
         feature_transform=None,
         target_transform=target_transforms,
     )
+    logger.info(
+        "Training predictor '%s' on %d measured designs.",
+        state.predictor,
+        len(train_indices),
+    )
     trainer.train(
         X_train=dataset.embeddings[train_indices, :],
         y_train=labels[train_indices],
     )
+    logger.info("Finished training predictor '%s'.", state.predictor)
 
     experiment_view = _ProductionExperimentView(
         dataset=dataset,
@@ -260,8 +283,16 @@ def suggest_next_batch(
         batch_size=state.batch_size,
         random_seed=state.seed,
     )
-    selected_indices = query_strategy.select(experiment_view)
     round_num = _next_round_number(state)
+    logger.info(
+        "Selecting round %d batch with '%s' (%d candidates, batch size %d).",
+        round_num,
+        state.query_strategy,
+        len(experiment_view.unlabeled_indices),
+        state.batch_size,
+    )
+    selected_indices = query_strategy.select(experiment_view)
+    logger.info("Selected %d designs for round %d.", len(selected_indices), round_num)
 
     state.label_column = label_column
     _append_round(
@@ -338,6 +369,7 @@ def _load_pool(
     if not pool_path.exists():
         raise FileNotFoundError(f"Pool CSV does not exist: {pool_path}")
 
+    logger.info("Loading design pool from %s", pool_path)
     pool_df = pd.read_csv(pool_path)
     resolved_sequence_column = _resolve_sequence_column(pool_df, sequence_column)
     if id_column is not None and id_column not in pool_df.columns:
@@ -348,6 +380,13 @@ def _load_pool(
     else:
         pool_ids = pool_df[id_column].map(_stringify_id).to_numpy(dtype=object)
     _ensure_unique_ids(pool_ids, "pool")
+    id_description = id_column if id_column is not None else "row index"
+    logger.info(
+        "Loaded %d designs (sequence column: %s; id: %s).",
+        len(pool_df),
+        resolved_sequence_column,
+        id_description,
+    )
     return pool_df, pool_ids, resolved_sequence_column
 
 
@@ -376,6 +415,7 @@ def _load_aligned_embeddings(
     if not path.exists():
         raise FileNotFoundError(f"Embeddings NPZ does not exist: {path}")
 
+    logger.info("Loading embeddings from %s", path)
     data = np.load(path, allow_pickle=True)
     if "embeddings" not in data:
         raise ValueError(
@@ -392,6 +432,11 @@ def _load_aligned_embeddings(
                 "Embeddings have no ids/sample_ids array and row count does not "
                 f"match pool size ({embeddings.shape[0]} vs {len(pool_ids)})."
             )
+        logger.info(
+            "Loaded embeddings for %d designs (%d features; aligned by row order).",
+            embeddings.shape[0],
+            embeddings.shape[1],
+        )
         return embeddings
 
     if len(embedding_ids) != embeddings.shape[0]:
@@ -404,6 +449,11 @@ def _load_aligned_embeddings(
     if row_indices is not None:
         aligned = np.empty((len(pool_ids), embeddings.shape[1]), dtype=embeddings.dtype)
         aligned[row_indices] = embeddings
+        logger.info(
+            "Loaded embeddings for %d designs (%d features; aligned by row indices).",
+            aligned.shape[0],
+            aligned.shape[1],
+        )
         return aligned
 
     embedding_id_strings = np.asarray(
@@ -422,7 +472,13 @@ def _load_aligned_embeddings(
             f"Embeddings are missing {len(missing)} pool ids. First missing ids: {preview}"
         )
     order = [id_to_embedding_row[str(sample_id)] for sample_id in pool_ids]
-    return embeddings[order]
+    aligned = embeddings[order]
+    logger.info(
+        "Loaded embeddings for %d designs (%d features; aligned by ids).",
+        aligned.shape[0],
+        aligned.shape[1],
+    )
+    return aligned
 
 
 def _extract_embedding_ids(data: Any) -> np.ndarray | None:
@@ -457,6 +513,7 @@ def _load_measurements(
     path = Path(measurements_csv).expanduser().resolve()
     if not path.exists():
         raise FileNotFoundError(f"Measurements CSV does not exist: {path}")
+    logger.info("Loading measurements from %s", path)
     df = pd.read_csv(path)
     if label_column not in df.columns:
         raise ValueError(f"label_column '{label_column}' was not found in {path}.")
@@ -489,6 +546,13 @@ def _load_measurements(
                 f"Conflicting labels for pool index {pool_index}: {existing} vs {label}."
             )
         measured[pool_index] = label
+    logger.info(
+        "Loaded %d measured labels from %d rows (label column: %s; id column: %s).",
+        len(measured),
+        len(df),
+        label_column,
+        id_column,
+    )
     return measured
 
 
@@ -652,6 +716,10 @@ def _write_selection_history(
         )
     history = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     history.to_csv(state.output_path / SELECTION_HISTORY_FILENAME, index=False)
+    logger.info(
+        "Updated selection history: %s",
+        state.output_path / SELECTION_HISTORY_FILENAME,
+    )
 
 
 def _build_recommendation_frame(

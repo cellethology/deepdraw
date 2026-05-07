@@ -8,24 +8,31 @@ from pathlib import Path
 
 from deepdraw.workflow import initialize_run, suggest_next_batch
 
+_LOG_LEVEL_CHOICES = ("DEBUG", "INFO", "WARNING", "ERROR")
+
+
+def _add_log_level_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--log-level",
+        default=argparse.SUPPRESS,
+        choices=_LOG_LEVEL_CHOICES,
+        help="Progress output verbosity.",
+    )
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="deepdraw",
         description="Run Deepdraw active learning on an experimental design pool.",
     )
-    parser.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=("DEBUG", "INFO", "WARNING", "ERROR"),
-        help="Python logging level.",
-    )
+    _add_log_level_argument(parser)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     init_parser = subparsers.add_parser(
         "init",
         help="Create a run and choose the first unlabeled batch to measure.",
     )
+    _add_log_level_argument(init_parser)
     init_parser.add_argument("--pool-csv", required=True, type=Path)
     init_parser.add_argument("--embeddings", required=True, type=Path)
     init_parser.add_argument(
@@ -70,6 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
         "suggest",
         help="Train on measured labels and choose the next batch.",
     )
+    _add_log_level_argument(suggest_parser)
     suggest_parser.add_argument("--run-dir", required=True, type=Path)
     suggest_parser.add_argument("--measurements", required=True, type=Path)
     suggest_parser.add_argument("--label-column")
@@ -81,8 +89,8 @@ def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
     logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="%(levelname)s:%(name)s:%(message)s",
+        level=getattr(logging, getattr(args, "log_level", "INFO")),
+        format="%(message)s",
     )
 
     if args.command == "init":
