@@ -29,33 +29,27 @@ git checkout codex/deepdraw-user-workflow
 
 ### 2. Run The Dummy Example
 
-The fastest way to verify the workflow is to run the bundled dummy example. It includes a 12-sequence design pool, a matching embeddings file, and fake first-round measurements.
+The fastest way to verify the workflow is to run the bundled dummy example. It includes a 24-sequence design pool, a matching embeddings file, and fake first-round measurements.
 
 ```bash
 uv run deepdraw init \
   --pool-csv examples/deepdraw_dummy/design_pool.csv \
   --embeddings examples/deepdraw_dummy/embeddings.npz \
   --sequence-column sequence \
-  --id-column variant_id \
-  --output-dir /tmp/deepdraw_dummy_run \
-  --starting-batch-size 4 \
-  --batch-size 3 \
-  --seed 11 \
-  --initial-selection-strategy random \
-  --force
+  --id-column variant_id
 ```
 
 Deepdraw writes the first batch to:
 
 ```text
-/tmp/deepdraw_dummy_run/round_000_to_measure.csv
+deepdraw_run/round_000_to_measure.csv
 ```
 
 Now simulate receiving measurements from the first experimental round:
 
 ```bash
 uv run deepdraw suggest \
-  --run-dir /tmp/deepdraw_dummy_run \
+  --run-dir deepdraw_run \
   --measurements examples/deepdraw_dummy/measurements_round0.csv \
   --label-column Expression
 ```
@@ -63,10 +57,10 @@ uv run deepdraw suggest \
 Deepdraw trains on the measured designs and writes the next batch to:
 
 ```text
-/tmp/deepdraw_dummy_run/round_001_to_measure.csv
+deepdraw_run/round_001_to_measure.csv
 ```
 
-This keeps the quick start small while making the 12-sequence toy example useful: `--starting-batch-size 4` avoids selecting the whole pool, `--batch-size 3` asks for three designs in the next round, and `--seed 11` makes the bundled fake measurements match the initial selection. See [Useful Flags](#useful-flags) for ways to change model, acquisition strategy, and preprocessing.
+The dummy example uses the same defaults as a real run: first batch size 12, later batch size 12, seed 0, ProbCover-euclidean initial selection, BoTorch GP prediction, and BoTorch MES acquisition. See [Useful Flags](#useful-flags) for ways to change output location, batch size, model, acquisition strategy, and preprocessing.
 
 ## Use Deepdraw On Your Own Project
 
@@ -201,7 +195,7 @@ The default workflow uses:
 - feature transforms: `standardize`
 - target transforms: `log_standardize`
 
-For very small smoke tests, the dummy example uses faster settings: `random`, `ridge_regressor`, `topk`, and no transforms.
+For very small smoke tests, you can use faster settings: `random`, `ridge_regressor`, `topk`, and no transforms.
 
 ## Useful Flags
 
@@ -220,21 +214,18 @@ uv run deepdraw init \
   --batch-size 12
 ```
 
-Make the dummy example deterministic:
+Choose where outputs are written:
 
 ```bash
 uv run deepdraw init \
-  --pool-csv examples/deepdraw_dummy/design_pool.csv \
-  --embeddings examples/deepdraw_dummy/embeddings.npz \
+  --pool-csv designs.csv \
+  --embeddings embeddings.npz \
   --sequence-column sequence \
   --id-column variant_id \
-  --output-dir /tmp/deepdraw_dummy_run \
-  --starting-batch-size 4 \
-  --batch-size 3 \
-  --seed 11 \
-  --initial-selection-strategy random \
-  --force
+  --output-dir runs/my_deepdraw_run
 ```
+
+If the run directory already exists, `deepdraw init` stops rather than overwriting `deepdraw_state.json`. Add `--force` only when you intentionally want to overwrite an existing run directory.
 
 Use a faster local smoke-test configuration by swapping in lighter model and transform settings:
 
@@ -244,7 +235,7 @@ uv run deepdraw init \
   --embeddings examples/deepdraw_dummy/embeddings.npz \
   --sequence-column sequence \
   --id-column variant_id \
-  --output-dir /tmp/deepdraw_dummy_run \
+  --output-dir /tmp/deepdraw_dummy_fast_run \
   --starting-batch-size 4 \
   --batch-size 3 \
   --seed 11 \
@@ -287,7 +278,7 @@ Required/common arguments:
 - `--embeddings`: NPZ containing GFM embeddings aligned to the design pool.
 - `--sequence-column`: sequence column in the design pool CSV.
 - `--id-column`: optional stable design ID column in the pool CSV.
-- `--output-dir`: run directory where Deepdraw writes state and recommendations.
+- `--output-dir`: run directory where Deepdraw writes state and recommendations. Defaults to `deepdraw_run`.
 - `--measurements`: CSV containing measured labels from previous recommendations.
 - `--label-column`: measured target column, such as `Expression` or `Fold Change`.
 

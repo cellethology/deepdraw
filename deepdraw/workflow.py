@@ -80,7 +80,7 @@ def initialize_run(
     *,
     pool_csv: str | Path,
     embeddings_path: str | Path,
-    output_dir: str | Path,
+    output_dir: str | Path = "deepdraw_run",
     sequence_column: str | None = None,
     id_column: str | None = None,
     starting_batch_size: int = 12,

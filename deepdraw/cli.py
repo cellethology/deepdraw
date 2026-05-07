@@ -28,7 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_parser.add_argument("--pool-csv", required=True, type=Path)
     init_parser.add_argument("--embeddings", required=True, type=Path)
-    init_parser.add_argument("--output-dir", required=True, type=Path)
+    init_parser.add_argument(
+        "--output-dir",
+        default=Path("deepdraw_run"),
+        type=Path,
+        help="Run directory for state and recommendations. Defaults to deepdraw_run.",
+    )
     init_parser.add_argument("--sequence-column")
     init_parser.add_argument("--id-column")
     init_parser.add_argument("--starting-batch-size", type=int, default=12)

@@ -143,16 +143,9 @@ def test_dummy_example_files_drive_workflow(tmp_path):
         output_dir=run_dir,
         sequence_column="sequence",
         id_column="variant_id",
-        starting_batch_size=4,
-        batch_size=3,
-        seed=11,
-        initial_selection_strategy_name="random",
-        predictor_name="ridge_regressor",
-        query_strategy_name="topk",
-        feature_transforms_name="none",
-        target_transforms_name="none",
     )
     first_batch = pd.read_csv(run_dir / "round_000_to_measure.csv")
+    measurements = pd.read_csv(example_dir / "measurements_round0.csv")
 
     updated_state = suggest_next_batch(
         run_dir=run_dir,
@@ -161,12 +154,9 @@ def test_dummy_example_files_drive_workflow(tmp_path):
     )
     next_batch = pd.read_csv(run_dir / "round_001_to_measure.csv")
 
-    assert state.rounds[0]["selected_pool_indices"] == [1, 5, 9, 8]
-    assert list(first_batch["deepdraw_id"]) == [
-        "variant_01",
-        "variant_05",
-        "variant_09",
-        "variant_08",
-    ]
+    assert state.initial_selection_strategy == "probcover_euclidean"
+    assert state.query_strategy == "botorch_mes"
+    assert len(first_batch) == 12
+    assert list(first_batch["deepdraw_id"]) == list(measurements["deepdraw_id"])
     assert len(updated_state.rounds) == 2
-    assert len(next_batch) == 3
+    assert len(next_batch) == 12

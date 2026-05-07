@@ -76,6 +76,8 @@ models/
 checkpoints/
 results/
 results_*/
+runs/
+deepdraw_run/
 wandb/
 data_assembly/
 data_analyze/
