@@ -149,6 +149,8 @@ variant_009,ATGCGTACGCAAGTTA,5.11
 
 Keep the stable ID column, such as `variant_id`, in every measurement update. Deepdraw uses that column to map measurements back to the original design pool.
 
+You can include extra measured designs that were not recommended by Deepdraw, as long as they are present in the original design pool. `deepdraw suggest` trains on every measured design in `measurements.csv`, then excludes all measured designs from the next recommendation batch.
+
 Keep updating this same file over time. After you measure `round_001_to_measure.csv`, append those new rows to `measurements.csv`; after `round_002_to_measure.csv`, append those rows too. Each `deepdraw suggest` call expects the measurements file to contain every previously recommended design with a measured label.
 
 ### 5. Select The Next Batch
