@@ -14,7 +14,7 @@ This README is for users who want to apply Deepdraw to their own design pool. Re
 Prerequisites: Git, Python, and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone git@github.com:cellethology/deepdraw.git
+git clone https://github.com/cellethology/deepdraw.git
 cd deepdraw
 
 uv sync --python 3.10
