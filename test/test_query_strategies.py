@@ -155,6 +155,12 @@ class TestPredStdHybridStrategy:
 
 
 class TestBoTorchAcquisition:
+    def test_strategy_name_omits_botorch_prefix(self):
+        strategy = BoTorchAcquisition(acquisition="qlog_nei")
+
+        assert strategy.name == "QLOG_NEI"
+        assert "BOTORCH" not in strategy.name
+
     def test_resolve_qlog_ei_class(self):
         strategy = BoTorchAcquisition(acquisition="qlog_ei", discrete_optimizer="exact")
         acq_class = strategy._resolve_acquisition_class()

@@ -42,13 +42,22 @@ class QueryStrategyBase(ABC):
         """
         unlabeled_pool = experiment.unlabeled_indices
         batch_size = experiment.batch_size
+        selected_count = min(batch_size, len(unlabeled_pool))
+        logger.info(
+            "%s: selecting %d designs from %d unmeasured candidates.",
+            self.name,
+            selected_count,
+            len(unlabeled_pool),
+        )
 
         # Early return if pool is smaller than batch size
         if len(unlabeled_pool) < batch_size:
+            logger.info("%s: selecting all remaining candidates.", self.name)
             return unlabeled_pool
 
         # Delegate to strategy-specific selection logic
         selected_indices = self._select_batch(experiment, unlabeled_pool, batch_size)
+        logger.info("%s: selection complete.", self.name)
         self._log_round(selected_indices)
         return selected_indices
 
@@ -84,7 +93,7 @@ class QueryStrategyBase(ABC):
         log_msg = f"Selected indices: {selected_indices}"
         if extra_info:
             log_msg += f" {extra_info}"
-        logger.info(log_msg)
+        logger.debug(log_msg)
 
 
 class Random(QueryStrategyBase):
@@ -163,7 +172,7 @@ class BoTorchAcquisition(QueryStrategyBase):
         num_samples: int | None = None,
         discrete_optimizer: str = "exact",
     ) -> None:
-        super().__init__(f"BOTORCH_{acquisition.upper()}")
+        super().__init__(acquisition.upper())
         self.acquisition = acquisition.lower()
         self.beta = beta
         self.maximize = maximize
@@ -183,6 +192,12 @@ class BoTorchAcquisition(QueryStrategyBase):
     def _select_batch(
         self, experiment: Any, unlabeled_pool: list[int], batch_size: int
     ) -> list[int]:
+        logger.info(
+            "%s: preparing acquisition '%s' with %d training samples.",
+            self.name,
+            self.acquisition,
+            len(experiment.train_indices),
+        )
         torch = self._import_torch()
         seed = self.seed
         if seed is None:
@@ -222,7 +237,7 @@ class BoTorchAcquisition(QueryStrategyBase):
         )
         if self.acquisition == "ts":
             logger.info(
-                "BOTORCH_TS: using direct posterior sampling for batch selection."
+                "%s: using direct posterior sampling for batch selection.", self.name
             )
             selected_local = self._select_thompson_batch(
                 torch=torch,
@@ -252,6 +267,7 @@ class BoTorchAcquisition(QueryStrategyBase):
             torch.cuda.manual_seed_all(int(seed))
 
     def _build_acquisition(self, torch, model, best_f, train_X, candidate_set):
+        logger.info("%s: building acquisition function.", self.name)
         acq_class = self._resolve_acquisition_class()
         kwargs = {
             "model": model,
@@ -343,6 +359,11 @@ class BoTorchAcquisition(QueryStrategyBase):
         from botorch.exceptions.errors import UnsupportedError
         from botorch.optim import optimize_acqf_discrete
 
+        logger.info(
+            "%s: optimizing acquisition over %s candidates with the exact optimizer.",
+            self.name,
+            self._candidate_count(candidate_set),
+        )
         try:
             candidates, _ = optimize_acqf_discrete(
                 acq_function=acq,
@@ -365,9 +386,20 @@ class BoTorchAcquisition(QueryStrategyBase):
     def _is_x_pending_compat_error(self, exc: Exception) -> bool:
         return "x_pending" in str(exc).lower()
 
+    def _candidate_count(self, candidate_set: Any) -> int | str:
+        try:
+            return len(candidate_set)
+        except TypeError:
+            return "unknown"
+
     def _greedy_indices(self, acq, candidate_set, batch_size: int) -> list[int]:
         import torch
 
+        logger.info(
+            "%s: scoring %s candidates with the greedy optimizer.",
+            self.name,
+            self._candidate_count(candidate_set),
+        )
         with torch.no_grad():
             scores = acq(candidate_set.unsqueeze(-2)).detach().cpu().numpy().reshape(-1)
         rank_scores = scores if self.maximize else -scores
