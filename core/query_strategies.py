@@ -360,9 +360,9 @@ class BoTorchAcquisition(QueryStrategyBase):
         from botorch.optim import optimize_acqf_discrete
 
         logger.info(
-            "%s: optimizing acquisition over %d candidates with the exact optimizer.",
+            "%s: optimizing acquisition over %s candidates with the exact optimizer.",
             self.name,
-            len(candidate_set),
+            self._candidate_count(candidate_set),
         )
         try:
             candidates, _ = optimize_acqf_discrete(
@@ -386,13 +386,19 @@ class BoTorchAcquisition(QueryStrategyBase):
     def _is_x_pending_compat_error(self, exc: Exception) -> bool:
         return "x_pending" in str(exc).lower()
 
+    def _candidate_count(self, candidate_set: Any) -> int | str:
+        try:
+            return len(candidate_set)
+        except TypeError:
+            return "unknown"
+
     def _greedy_indices(self, acq, candidate_set, batch_size: int) -> list[int]:
         import torch
 
         logger.info(
-            "%s: scoring %d candidates with the greedy optimizer.",
+            "%s: scoring %s candidates with the greedy optimizer.",
             self.name,
-            len(candidate_set),
+            self._candidate_count(candidate_set),
         )
         with torch.no_grad():
             scores = acq(candidate_set.unsqueeze(-2)).detach().cpu().numpy().reshape(-1)
