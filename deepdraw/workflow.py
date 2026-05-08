@@ -86,7 +86,7 @@ def initialize_run(
     batch_size: int = 12,
     seed: int = 0,
     predictor_name: str = "botorch_gp",
-    query_strategy_name: str = "botorch_mes",
+    query_strategy_name: str = "mes",
     initial_selection_strategy_name: str = "probcover_euclidean",
     feature_transforms_name: str = "standardize",
     target_transforms_name: str = "log_standardize",
@@ -148,7 +148,7 @@ def initialize_run(
         starting_batch_size=starting_batch_size,
         seed=seed,
         predictor=predictor_name,
-        query_strategy=query_strategy_name,
+        query_strategy=_canonical_query_strategy_name(query_strategy_name),
         initial_selection_strategy=initial_selection_strategy_name,
         feature_transforms=feature_transforms_name,
         target_transforms=target_transforms_name,
@@ -278,7 +278,7 @@ def suggest_next_batch(
     else:
         logger.info(
             "Skipping predictor training because query strategy '%s' does not require a model.",
-            state.query_strategy,
+            _display_query_strategy_name(state.query_strategy),
         )
 
     experiment_view = _ProductionExperimentView(
@@ -293,7 +293,7 @@ def suggest_next_batch(
     logger.info(
         "Selecting round %d batch with '%s' (%d candidates, batch size %d).",
         round_num,
-        state.query_strategy,
+        _display_query_strategy_name(state.query_strategy),
         len(experiment_view.unlabeled_indices),
         state.batch_size,
     )
@@ -797,9 +797,7 @@ def _load_named_config(
     name: str,
     al_settings: dict[str, Any],
 ) -> Any:
-    path = _CONFIG_ROOT / kind / f"{name}.yaml"
-    if not path.exists():
-        raise FileNotFoundError(f"Unknown {kind} config '{name}' ({path}).")
+    path = _resolve_named_config_path(kind=kind, name=name)
     component_cfg = OmegaConf.load(path)
     root = OmegaConf.create(
         {
@@ -809,6 +807,32 @@ def _load_named_config(
     )
     OmegaConf.resolve(root)
     return root.component
+
+
+def _resolve_named_config_path(*, kind: str, name: str) -> Path:
+    candidates = [_CONFIG_ROOT / kind / f"{name}.yaml"]
+    if kind == "query_strategy":
+        canonical = _canonical_query_strategy_name(name)
+        if canonical != str(name).strip():
+            candidates.append(_CONFIG_ROOT / kind / f"{canonical}.yaml")
+        if not canonical.startswith("botorch_"):
+            candidates.append(_CONFIG_ROOT / kind / f"botorch_{canonical}.yaml")
+    for path in candidates:
+        if path.exists():
+            return path
+    checked = ", ".join(str(path) for path in candidates)
+    raise FileNotFoundError(f"Unknown {kind} config '{name}' (checked {checked}).")
+
+
+def _canonical_query_strategy_name(name: str) -> str:
+    text = str(name).strip().lower()
+    if text.startswith("botorch_"):
+        return text[len("botorch_") :]
+    return text
+
+
+def _display_query_strategy_name(name: str) -> str:
+    return _canonical_query_strategy_name(name)
 
 
 def _build_al_settings(

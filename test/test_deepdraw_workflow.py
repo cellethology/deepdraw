@@ -71,7 +71,7 @@ def test_initialize_run_writes_initial_batch_without_labels(tmp_path):
     assert (run_dir / "selection_history.csv").exists()
 
 
-def test_initialize_run_defaults_to_botorch_mes_query_strategy(tmp_path):
+def test_initialize_run_defaults_to_mes_query_strategy(tmp_path):
     pool_path, embeddings_path = _write_pool_and_embeddings(tmp_path)
 
     state = initialize_run(
@@ -85,7 +85,39 @@ def test_initialize_run_defaults_to_botorch_mes_query_strategy(tmp_path):
         initial_selection_strategy_name="random",
     )
 
-    assert state.query_strategy == "botorch_mes"
+    assert state.query_strategy == "mes"
+
+
+def test_query_strategy_accepts_legacy_botorch_prefix(tmp_path):
+    pool_path, embeddings_path = _write_pool_and_embeddings(tmp_path)
+
+    state = initialize_run(
+        pool_csv=pool_path,
+        embeddings_path=embeddings_path,
+        output_dir=tmp_path / "legacy_query_run",
+        sequence_column="sequence",
+        id_column="variant_id",
+        starting_batch_size=3,
+        batch_size=2,
+        initial_selection_strategy_name="random",
+        query_strategy_name="botorch_mes",
+    )
+    strategy = workflow._instantiate_component(
+        kind="query_strategy",
+        name=state.query_strategy,
+        al_settings={"seed": 0, "starting_batch_size": 3, "batch_size": 2},
+    )
+
+    assert state.query_strategy == "mes"
+    assert strategy.acquisition == "mes"
+    assert strategy.name == "MES"
+
+
+def test_query_strategy_short_alias_resolves_legacy_config_file() -> None:
+    path = workflow._resolve_named_config_path(kind="query_strategy", name="qlog_nei")
+
+    assert path.name == "botorch_qlog_nei.yaml"
+    assert workflow._display_query_strategy_name("botorch_qlog_nei") == "qlog_nei"
 
 
 def test_suggest_next_batch_uses_measurements_and_excludes_measured(tmp_path):
@@ -209,7 +241,7 @@ def test_dummy_example_files_drive_workflow(tmp_path):
     next_batch = pd.read_csv(run_dir / "round_001_to_measure.csv")
 
     assert state.initial_selection_strategy == "probcover_euclidean"
-    assert state.query_strategy == "botorch_mes"
+    assert state.query_strategy == "mes"
     assert len(first_batch) == 12
     assert list(first_batch["variant_id"]) == list(measurements["variant_id"])
     assert len(updated_state.rounds) == 2

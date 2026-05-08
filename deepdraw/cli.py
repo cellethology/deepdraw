@@ -58,8 +58,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_parser.add_argument(
         "--query-strategy",
-        default="botorch_mes",
-        help="Name under job_sub/conf/query_strategy without .yaml.",
+        default="mes",
+        help=(
+            "Query strategy for later rounds, such as mes, qlog_nei, or topk. "
+            "Existing botorch_* names are accepted."
+        ),
     )
     init_parser.add_argument(
         "--feature-transforms",

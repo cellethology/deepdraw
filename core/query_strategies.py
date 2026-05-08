@@ -172,7 +172,7 @@ class BoTorchAcquisition(QueryStrategyBase):
         num_samples: int | None = None,
         discrete_optimizer: str = "exact",
     ) -> None:
-        super().__init__(f"BOTORCH_{acquisition.upper()}")
+        super().__init__(acquisition.upper())
         self.acquisition = acquisition.lower()
         self.beta = beta
         self.maximize = maximize
@@ -237,7 +237,7 @@ class BoTorchAcquisition(QueryStrategyBase):
         )
         if self.acquisition == "ts":
             logger.info(
-                "BOTORCH_TS: using direct posterior sampling for batch selection."
+                "%s: using direct posterior sampling for batch selection.", self.name
             )
             selected_local = self._select_thompson_batch(
                 torch=torch,

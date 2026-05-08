@@ -73,7 +73,7 @@ Deepdraw trains on all rows in the measurement file and writes the next batch to
 deepdraw_run/round_001_to_measure.csv
 ```
 
-The dummy example uses the same defaults as a real run: first batch size 12, later batch size 12, seed 0, ProbCover-euclidean initial selection, BoTorch GP prediction, and BoTorch MES acquisition. See [Useful Flags](#useful-flags) for ways to change output location, batch size, model, acquisition strategy, and preprocessing.
+The dummy example uses the same defaults as a real run: first batch size 12, later batch size 12, seed 0, ProbCover-euclidean initial selection, BoTorch GP prediction, and MES acquisition. See [Useful Flags](#useful-flags) for ways to change output location, batch size, model, acquisition strategy, and preprocessing.
 
 ## Use Deepdraw On Your Own Project
 
@@ -231,7 +231,7 @@ The default workflow uses:
 
 - initial selection: `probcover_euclidean`
 - predictor: `botorch_gp`
-- query strategy: `botorch_mes`
+- query strategy: `mes`
 - feature transforms: `standardize`
 - target transforms: `log_standardize`
 
@@ -294,7 +294,7 @@ Common override flags:
 - `--seed`: random seed for reproducible initial selection and stochastic model components.
 - `--initial-selection-strategy`: first-round strategy, such as `probcover_euclidean`, `core_set`, or `random`.
 - `--predictor`: model used after measurements arrive, such as `botorch_gp` or `ridge_regressor`.
-- `--query-strategy`: acquisition strategy for later rounds, such as `botorch_mes`, `botorch_qlog_nei`, or `topk`.
+- `--query-strategy`: acquisition strategy for later rounds, such as `mes`, `qlog_nei`, or `topk`. Existing `botorch_*` names are also accepted.
 - `--feature-transforms`: feature preprocessing config, such as `standardize` or `none`.
 - `--target-transforms`: label preprocessing config, such as `log_standardize` or `none`.
 - `--log-level`: progress output verbosity; default is `INFO`, use `WARNING` for quieter runs.
