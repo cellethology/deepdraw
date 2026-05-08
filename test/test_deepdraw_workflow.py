@@ -5,7 +5,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from deepdraw.workflow import initialize_run, load_state, suggest_next_batch
+from deepdraw import workflow
+from deepdraw.workflow import (
+    _training_indices_for_state,
+    initialize_run,
+    load_state,
+    suggest_next_batch,
+)
 
 
 def _write_pool_and_embeddings(tmp_path: Path, n_samples: int = 12, dim: int = 4):
@@ -130,6 +136,55 @@ def test_suggest_requires_labels_for_previous_recommendations(tmp_path):
             measurements_csv=measurements_path,
             label_column="Expression",
         )
+
+
+def test_training_indices_preserve_deepdraw_round_order(tmp_path):
+    state = _initialize_small_run(tmp_path)
+    selected = [int(idx) for idx in state.rounds[0]["selected_pool_indices"]]
+    extras = [idx for idx in range(12) if idx not in selected][:2]
+    measured_labels = {idx: float(idx) for idx in [*reversed(selected), *extras]}
+
+    assert _training_indices_for_state(state, measured_labels) == [
+        *selected,
+        *sorted(extras),
+    ]
+
+
+def test_random_query_strategy_skips_predictor_training(tmp_path, monkeypatch):
+    pool_path, embeddings_path = _write_pool_and_embeddings(tmp_path)
+    state = initialize_run(
+        pool_csv=pool_path,
+        embeddings_path=embeddings_path,
+        output_dir=tmp_path / "random_query_run",
+        sequence_column="sequence",
+        id_column="variant_id",
+        starting_batch_size=4,
+        batch_size=3,
+        seed=11,
+        initial_selection_strategy_name="random",
+        predictor_name="ridge_regressor",
+        query_strategy_name="random",
+        feature_transforms_name="none",
+        target_transforms_name="none",
+    )
+    run_dir = Path(state.output_dir)
+    measurements = pd.read_csv(run_dir / "round_000_to_measure.csv")
+    measurements["Expression"] = np.linspace(1.0, 4.0, len(measurements))
+    measurements_path = tmp_path / "measurements.csv"
+    measurements.to_csv(measurements_path, index=False)
+
+    def fail_train(self, X_train, y_train):
+        raise AssertionError("random acquisition should not train a predictor")
+
+    monkeypatch.setattr(workflow.PredictorTrainer, "train", fail_train)
+
+    updated_state = suggest_next_batch(
+        run_dir=run_dir,
+        measurements_csv=measurements_path,
+        label_column="Expression",
+    )
+
+    assert len(updated_state.rounds) == 2
 
 
 def test_dummy_example_files_drive_workflow(tmp_path):

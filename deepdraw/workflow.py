@@ -220,7 +220,7 @@ def suggest_next_batch(
     )
 
     labels = np.full(len(pool_ids), np.nan)
-    train_indices = sorted(measured_labels)
+    train_indices = _training_indices_for_state(state, measured_labels)
     labels[train_indices] = [measured_labels[idx] for idx in train_indices]
     unmeasured_count = len(pool_ids) - len(train_indices)
     logger.info(
@@ -263,16 +263,23 @@ def suggest_next_batch(
         feature_transform=None,
         target_transform=target_transforms,
     )
-    logger.info(
-        "Training predictor '%s' on %d measured designs.",
-        state.predictor,
-        len(train_indices),
-    )
-    trainer.train(
-        X_train=dataset.embeddings[train_indices, :],
-        y_train=labels[train_indices],
-    )
-    logger.info("Finished training predictor '%s'.", state.predictor)
+    requires_model = getattr(query_strategy, "requires_model", True)
+    if requires_model:
+        logger.info(
+            "Training predictor '%s' on %d measured designs.",
+            state.predictor,
+            len(train_indices),
+        )
+        trainer.train(
+            X_train=dataset.embeddings[train_indices, :],
+            y_train=labels[train_indices],
+        )
+        logger.info("Finished training predictor '%s'.", state.predictor)
+    else:
+        logger.info(
+            "Skipping predictor training because query strategy '%s' does not require a model.",
+            state.query_strategy,
+        )
 
     experiment_view = _ProductionExperimentView(
         dataset=dataset,
@@ -642,6 +649,24 @@ def _previously_selected_indices(state: DeepdrawState) -> set[int]:
     for round_record in state.rounds:
         selected.update(int(idx) for idx in round_record["selected_pool_indices"])
     return selected
+
+
+def _training_indices_for_state(
+    state: DeepdrawState,
+    measured_labels: dict[int, float],
+) -> list[int]:
+    ordered: list[int] = []
+    seen: set[int] = set()
+    for round_record in state.rounds:
+        for raw_idx in round_record["selected_pool_indices"]:
+            idx = int(raw_idx)
+            if idx in measured_labels and idx not in seen:
+                ordered.append(idx)
+                seen.add(idx)
+
+    extra_measured = sorted(set(measured_labels) - seen)
+    ordered.extend(extra_measured)
+    return ordered
 
 
 def _append_round(
