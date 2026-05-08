@@ -85,7 +85,39 @@ def test_initialize_run_defaults_to_mes_query_strategy(tmp_path):
         initial_selection_strategy_name="random",
     )
 
+    assert state.predictor == "gp"
     assert state.query_strategy == "mes"
+
+
+def test_predictor_short_alias_resolves_legacy_config_file() -> None:
+    path = workflow._resolve_named_config_path(kind="predictor", name="gp")
+
+    assert path.name == "botorch_gp.yaml"
+    assert workflow._display_component_name("predictor", "botorch_gp") == "gp"
+
+
+def test_predictor_accepts_legacy_botorch_prefix(tmp_path):
+    pool_path, embeddings_path = _write_pool_and_embeddings(tmp_path)
+
+    state = initialize_run(
+        pool_csv=pool_path,
+        embeddings_path=embeddings_path,
+        output_dir=tmp_path / "legacy_predictor_run",
+        sequence_column="sequence",
+        id_column="variant_id",
+        starting_batch_size=3,
+        batch_size=2,
+        initial_selection_strategy_name="random",
+        predictor_name="botorch_gp",
+    )
+    predictor = workflow._instantiate_component(
+        kind="predictor",
+        name=state.predictor,
+        al_settings={"seed": 0, "starting_batch_size": 3, "batch_size": 2},
+    )
+
+    assert state.predictor == "gp"
+    assert predictor.__class__.__name__ == "BoTorchGPRegressor"
 
 
 def test_query_strategy_accepts_legacy_botorch_prefix(tmp_path):
@@ -241,6 +273,7 @@ def test_dummy_example_files_drive_workflow(tmp_path):
     next_batch = pd.read_csv(run_dir / "round_001_to_measure.csv")
 
     assert state.initial_selection_strategy == "probcover_euclidean"
+    assert state.predictor == "gp"
     assert state.query_strategy == "mes"
     assert len(first_batch) == 12
     assert list(first_batch["variant_id"]) == list(measurements["variant_id"])

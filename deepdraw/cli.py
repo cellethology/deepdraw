@@ -53,8 +53,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_parser.add_argument(
         "--predictor",
-        default="botorch_gp",
-        help="Name under job_sub/conf/predictor without .yaml.",
+        default="gp",
+        help=(
+            "Predictor for later rounds, such as gp or ridge_regressor. "
+            "Existing botorch_* names are accepted."
+        ),
     )
     init_parser.add_argument(
         "--query-strategy",

@@ -85,7 +85,7 @@ def initialize_run(
     starting_batch_size: int = 12,
     batch_size: int = 12,
     seed: int = 0,
-    predictor_name: str = "botorch_gp",
+    predictor_name: str = "gp",
     query_strategy_name: str = "mes",
     initial_selection_strategy_name: str = "probcover_euclidean",
     feature_transforms_name: str = "standardize",
@@ -147,7 +147,7 @@ def initialize_run(
         batch_size=batch_size,
         starting_batch_size=starting_batch_size,
         seed=seed,
-        predictor=predictor_name,
+        predictor=_canonical_component_name("predictor", predictor_name),
         query_strategy=_canonical_query_strategy_name(query_strategy_name),
         initial_selection_strategy=initial_selection_strategy_name,
         feature_transforms=feature_transforms_name,
@@ -267,18 +267,21 @@ def suggest_next_batch(
     if requires_model:
         logger.info(
             "Training predictor '%s' on %d measured designs.",
-            state.predictor,
+            _display_component_name("predictor", state.predictor),
             len(train_indices),
         )
         trainer.train(
             X_train=dataset.embeddings[train_indices, :],
             y_train=labels[train_indices],
         )
-        logger.info("Finished training predictor '%s'.", state.predictor)
+        logger.info(
+            "Finished training predictor '%s'.",
+            _display_component_name("predictor", state.predictor),
+        )
     else:
         logger.info(
             "Skipping predictor training because query strategy '%s' does not require a model.",
-            _display_query_strategy_name(state.query_strategy),
+            _display_component_name("query_strategy", state.query_strategy),
         )
 
     experiment_view = _ProductionExperimentView(
@@ -293,7 +296,7 @@ def suggest_next_batch(
     logger.info(
         "Selecting round %d batch with '%s' (%d candidates, batch size %d).",
         round_num,
-        _display_query_strategy_name(state.query_strategy),
+        _display_component_name("query_strategy", state.query_strategy),
         len(experiment_view.unlabeled_indices),
         state.batch_size,
     )
@@ -811,12 +814,11 @@ def _load_named_config(
 
 def _resolve_named_config_path(*, kind: str, name: str) -> Path:
     candidates = [_CONFIG_ROOT / kind / f"{name}.yaml"]
-    if kind == "query_strategy":
-        canonical = _canonical_query_strategy_name(name)
-        if canonical != str(name).strip():
-            candidates.append(_CONFIG_ROOT / kind / f"{canonical}.yaml")
-        if not canonical.startswith("botorch_"):
-            candidates.append(_CONFIG_ROOT / kind / f"botorch_{canonical}.yaml")
+    canonical = _canonical_component_name(kind, name)
+    if canonical != str(name).strip():
+        candidates.append(_CONFIG_ROOT / kind / f"{canonical}.yaml")
+    if kind in {"predictor", "query_strategy"} and not canonical.startswith("botorch_"):
+        candidates.append(_CONFIG_ROOT / kind / f"botorch_{canonical}.yaml")
     for path in candidates:
         if path.exists():
             return path
@@ -824,15 +826,23 @@ def _resolve_named_config_path(*, kind: str, name: str) -> Path:
     raise FileNotFoundError(f"Unknown {kind} config '{name}' (checked {checked}).")
 
 
-def _canonical_query_strategy_name(name: str) -> str:
+def _canonical_component_name(kind: str, name: str) -> str:
     text = str(name).strip().lower()
-    if text.startswith("botorch_"):
+    if kind in {"predictor", "query_strategy"} and text.startswith("botorch_"):
         return text[len("botorch_") :]
     return text
 
 
+def _display_component_name(kind: str, name: str) -> str:
+    return _canonical_component_name(kind, name)
+
+
+def _canonical_query_strategy_name(name: str) -> str:
+    return _canonical_component_name("query_strategy", name)
+
+
 def _display_query_strategy_name(name: str) -> str:
-    return _canonical_query_strategy_name(name)
+    return _display_component_name("query_strategy", name)
 
 
 def _build_al_settings(

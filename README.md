@@ -230,7 +230,7 @@ uv run deepdraw init \
 The default workflow uses:
 
 - initial selection: `probcover_euclidean`
-- predictor: `botorch_gp`
+- predictor: `gp`
 - query strategy: `mes`
 - feature transforms: `standardize`
 - target transforms: `log_standardize`
@@ -293,7 +293,7 @@ Common override flags:
 - `--batch-size`: number of designs in each later batch.
 - `--seed`: random seed for reproducible initial selection and stochastic model components.
 - `--initial-selection-strategy`: first-round strategy, such as `probcover_euclidean`, `core_set`, or `random`.
-- `--predictor`: model used after measurements arrive, such as `botorch_gp` or `ridge_regressor`.
+- `--predictor`: model used after measurements arrive, such as `gp` or `ridge_regressor`. Existing `botorch_*` names are also accepted.
 - `--query-strategy`: acquisition strategy for later rounds, such as `mes`, `qlog_nei`, or `topk`. Existing `botorch_*` names are also accepted.
 - `--feature-transforms`: feature preprocessing config, such as `standardize` or `none`.
 - `--target-transforms`: label preprocessing config, such as `log_standardize` or `none`.
