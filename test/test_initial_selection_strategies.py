@@ -8,6 +8,7 @@ from core.data_loader import Dataset
 from core.initial_selection_strategies import (
     CoreSetInitialSelection,
     DensityWeightedCoreSetInitialSelection,
+    DeterministicProbCoverInitialSelection,
     KMeansInitialSelection,
     RandomInitialSelection,
     TypiClustInitialSelection,
@@ -83,6 +84,45 @@ def test_core_set_initial_selection_handles_empty_dataset():
     indices = strategy.select(dataset)
 
     assert indices == []
+
+
+def test_initial_selection_log_omits_missing_labels(caplog):
+    dataset = Dataset(
+        sample_ids=["sample_0", "sample_1", "sample_2", "sample_3"],
+        labels=np.full(4, np.nan),
+        embeddings=np.array(
+            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [2.0, 2.0]],
+            dtype=float,
+        ),
+    )
+    strategy = CoreSetInitialSelection(
+        seed=0, starting_batch_size=2, density_neighbors=1
+    )
+
+    caplog.set_level("INFO", logger="core.initial_selection_strategies")
+    strategy.select(dataset)
+
+    assert "CORESET_INITIAL: selected 2 sequences." in caplog.text
+    assert "Labels:" not in caplog.text
+
+
+def test_initial_selection_log_keeps_available_labels(caplog):
+    dataset = Dataset(
+        sample_ids=["sample_0", "sample_1", "sample_2", "sample_3"],
+        labels=np.array([1.0, 2.0, 3.0, 4.0]),
+        embeddings=np.array(
+            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [2.0, 2.0]],
+            dtype=float,
+        ),
+    )
+    strategy = CoreSetInitialSelection(
+        seed=0, starting_batch_size=2, density_neighbors=1
+    )
+
+    caplog.set_level("INFO", logger="core.initial_selection_strategies")
+    strategy.select(dataset)
+
+    assert "CORESET_INITIAL: selected 2 sequences. Labels:" in caplog.text
 
 
 def test_core_set_initial_selection_handles_density_none(monkeypatch):
@@ -271,3 +311,154 @@ def test_typiclust_initial_selection_falls_back_when_clusters_filtered():
 
     assert len(indices) == 5
     assert len(set(indices)) == 5
+
+
+def test_deterministic_probcover_is_seed_invariant():
+    rng = np.random.default_rng(0)
+    embeddings = np.vstack(
+        [
+            rng.normal(loc=(-2.0, -2.0), scale=0.25, size=(20, 2)),
+            rng.normal(loc=(2.0, 2.0), scale=0.25, size=(20, 2)),
+            rng.normal(loc=(0.0, 4.0), scale=0.25, size=(20, 2)),
+        ]
+    )
+    dataset = _dataset_from_embeddings(embeddings)
+
+    strategy_a = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=6,
+        metric="euclidean",
+        auto_delta=True,
+        delta_sample_size=18,
+        pair_sample_size=36,
+        representative_clusters=6,
+    )
+    strategy_b = DeterministicProbCoverInitialSelection(
+        seed=999,
+        starting_batch_size=6,
+        metric="euclidean",
+        auto_delta=True,
+        delta_sample_size=18,
+        pair_sample_size=36,
+        representative_clusters=6,
+    )
+
+    indices_a = strategy_a.select(dataset)
+    indices_b = strategy_b.select(dataset)
+
+    assert indices_a == indices_b
+    assert strategy_a.delta == strategy_b.delta
+
+
+def test_deterministic_probcover_fallback_fill_uses_sorted_indices():
+    dataset = _dataset_from_embeddings(
+        [
+            [0.0, 0.0],
+            [10.0, 0.0],
+            [20.0, 0.0],
+            [30.0, 0.0],
+        ]
+    )
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=5,
+        starting_batch_size=3,
+        delta=0.0,
+        metric="euclidean",
+        auto_delta=False,
+    )
+
+    indices = strategy.select(dataset)
+
+    assert indices == [0, 1, 2]
+
+
+def test_deterministic_probcover_estimate_delta_falls_back_to_default_when_no_candidates(
+    monkeypatch,
+):
+    embeddings = np.array([[0.0, 0.0], [0.0, 0.0]], dtype=float)
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=1,
+        auto_delta=True,
+        delta=None,
+        metric="euclidean",
+    )
+
+    monkeypatch.setattr(
+        DeterministicProbCoverInitialSelection,
+        "_compute_pseudo_labels",
+        lambda self, embeddings, num_clusters: np.zeros(len(embeddings), dtype=int),
+    )
+    monkeypatch.setattr(
+        DeterministicProbCoverInitialSelection,
+        "_select_representative_indices",
+        lambda self, embeddings, sample_size: np.arange(
+            min(sample_size, len(embeddings)), dtype=int
+        ),
+    )
+    monkeypatch.setattr(
+        DeterministicProbCoverInitialSelection,
+        "_candidate_deltas",
+        lambda self, embeddings: np.array([], dtype=float),
+    )
+
+    assert strategy._estimate_delta(embeddings) == 0.5
+
+
+def test_deterministic_probcover_candidate_deltas_handles_cosine():
+    embeddings = np.array(
+        [
+            [1.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 1.0],
+            [1.0, -1.0],
+        ],
+        dtype=float,
+    )
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=2,
+        metric="cosine",
+        pair_sample_size=6,
+        delta_candidates=5,
+        representative_clusters=3,
+    )
+
+    candidates = strategy._candidate_deltas(embeddings)
+
+    assert candidates.size > 0
+    assert np.all(np.isfinite(candidates))
+    assert np.all(candidates > 0)
+    assert np.all(np.diff(candidates) >= 0)
+
+
+def test_deterministic_probcover_select_representatives_returns_all_when_sample_covers_dataset():
+    embeddings = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]],
+        dtype=float,
+    )
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=2,
+        metric="euclidean",
+    )
+
+    indices = strategy._select_representative_indices(embeddings, sample_size=5)
+
+    assert np.array_equal(indices, np.array([0, 1, 2], dtype=int))
+
+
+def test_deterministic_probcover_allocate_cluster_counts_respects_limits():
+    strategy = DeterministicProbCoverInitialSelection(
+        seed=0,
+        starting_batch_size=2,
+        metric="euclidean",
+    )
+
+    counts = strategy._allocate_cluster_counts([10, 1, 1], sample_size=4)
+
+    assert sum(counts) == 4
+    assert counts[0] >= counts[1]
+    assert counts[0] >= counts[2]
+    assert counts[1] >= 1
+    assert counts[2] >= 1

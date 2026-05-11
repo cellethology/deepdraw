@@ -38,37 +38,36 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .venv
             ~/.cache/uv
             ~/.cache/pre-commit
-          key: ${{ runner.os }}-uv-precommit-${{ hashFiles('pyproject.toml', 'uv.lock', '.pre-commit-config.yaml') }}
+          key: ${{ runner.os }}-uv-precommit-v2-${{ hashFiles('pyproject.toml', 'uv.lock', '.pre-commit-config.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-uv-precommit-
+            ${{ runner.os }}-uv-precommit-v2-
 
       - name: Install dependencies
         env:
           UV_INDEX_URL: https://pypi.org/simple
         run: |
-          uv sync --python 3.10 --frozen
+          uv sync --python 3.10 --frozen --group dev
 
       - name: Install pre-commit hooks
         env:
           UV_INDEX_URL: https://pypi.org/simple
         run: |
-          uv run pre-commit install-hooks
+          uv run --frozen --group dev pre-commit install-hooks
 
       - name: Run pre-commit hooks
         env:
           SKIP: pytest
           UV_INDEX_URL: https://pypi.org/simple
         run: |
-          uv run pre-commit run --all-files --verbose
+          uv run --frozen --group dev pre-commit run --all-files --verbose
 
       - name: Run pytest with coverage
         env:
           UV_INDEX_URL: https://pypi.org/simple
         run: |
-          uv run pytest --cov=core --cov=job_sub --cov=utils --cov-report=xml
+          uv run --frozen --group dev pytest --cov=core --cov=job_sub --cov=utils --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

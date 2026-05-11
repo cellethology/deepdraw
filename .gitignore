@@ -26,6 +26,7 @@ env/
 ENV/
 .env
 .venv
+.venv*/
 env.bak/
 venv.bak/
 
@@ -55,6 +56,8 @@ htmlcov/
 *.sqlite
 *.db
 *.csv
+!examples/deepdraw_dummy/design_pool.csv
+!examples/deepdraw_dummy/measurements.csv
 *.pdf
 *.png
 *.err
@@ -75,6 +78,8 @@ models/
 checkpoints/
 results/
 results_*/
+runs/
+deepdraw_run/
 wandb/
 data_assembly/
 data_analyze/
