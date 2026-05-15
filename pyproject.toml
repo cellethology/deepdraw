@@ -52,6 +52,7 @@ deepdraw = "deepdraw.cli:main"
 run-active-learning = "run_experiments:main"
 
 [tool.hatch.build]
+only-packages = true
 exclude = [
     "**/__pycache__/**",
     "**/*.py[cod]",
@@ -64,10 +65,11 @@ exclude = [
     "**/*.pt",
     "**/*.pkl",
     "**/.DS_Store",
+    "job_sub/datasets/**",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["core", "deepdraw", "job_sub", "utils"]
+only-include = ["core", "deepdraw", "job_sub", "utils"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "job_sub/conf" = "job_sub/conf"
