@@ -51,6 +51,21 @@ Issues = "https://github.com/cellethology/deepdraw/issues"
 deepdraw = "deepdraw.cli:main"
 run-active-learning = "run_experiments:main"
 
+[tool.hatch.build]
+exclude = [
+    "**/__pycache__/**",
+    "**/*.py[cod]",
+    "**/*.ipynb",
+    "**/*.csv",
+    "**/*.tsv",
+    "**/*.parquet",
+    "**/*.npy",
+    "**/*.npz",
+    "**/*.pt",
+    "**/*.pkl",
+    "**/.DS_Store",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["core", "deepdraw", "job_sub", "utils"]
 
