@@ -56,7 +56,7 @@ hydra:
   launcher:
     timeout_min: 720
     # everything below is used only for submitting jobs to the cluster
-    partition: intel-sc3,wzt_20250411 # no spacing between names
+    partition: intel-sc3-32c,amd-ep5,wzt_20250411 # no spacing between names
     cpus_per_task: 1
     qos: huge
     mem_per_cpu: 60GB
