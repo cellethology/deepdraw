@@ -2,4 +2,5 @@ _target_: core.initial_selection_strategies.KMedoidsInitialSelection
 seed: ${al_settings.seed}
 starting_batch_size: ${al_settings.starting_batch_size}
 metric: euclidean
-max_iter: 50
+max_iter: 100
+init: build

@@ -5,6 +5,7 @@ Initial selection strategies for choosing the seed batch.
 import logging
 from abc import ABC, abstractmethod
 
+import kmedoids
 import numpy as np
 from sklearn.cluster import KMeans, MiniBatchKMeans
 from sklearn.metrics import pairwise_distances, pairwise_distances_argmin_min
@@ -126,11 +127,11 @@ class KMedoidsInitialSelection(InitialSelectionStrategy):
     a representative example rather than a synthetic average, which makes the
     method more robust to outliers and meaningful for non-Euclidean metrics.
 
-    Uses the Voronoi-iteration ("alternate") variant: alternate between
-    assigning every point to its nearest medoid and replacing each medoid
-    with the in-cluster point that minimizes the total within-cluster
-    distance. Iteration stops when the medoid set is stable or
-    ``max_iter`` has been reached.
+    Backed by Schubert & Rousseeuw's FasterPAM (``kmedoids`` package): a
+    Rust-implemented variant of PAM that performs swaps eagerly with an
+    O(k) speedup over textbook PAM. ``init`` defaults to ``"build"`` so
+    the optimisation starts from the PAM BUILD heuristic rather than a
+    random medoid set.
     """
 
     def __init__(
@@ -138,12 +139,14 @@ class KMedoidsInitialSelection(InitialSelectionStrategy):
         seed: int,
         starting_batch_size: int,
         metric: str = "euclidean",
-        max_iter: int = 50,
+        max_iter: int = 100,
+        init: str = "build",
     ) -> None:
         super().__init__("KMEDOIDS", starting_batch_size=starting_batch_size)
         self.seed = seed
         self.metric = metric
         self.max_iter = max(1, int(max_iter))
+        self.init = init
 
     def select(
         self,
@@ -165,60 +168,21 @@ class KMedoidsInitialSelection(InitialSelectionStrategy):
         if k == 0:
             return []
 
-        rng = np.random.default_rng(self.seed)
-        medoid_indices = rng.choice(num_samples, size=k, replace=False)
+        # FasterPAM operates on a precomputed dissimilarity matrix. Use
+        # float32 to halve memory on large pools without changing the result.
+        diss = pairwise_distances(embeddings, metric=self.metric).astype(
+            np.float32, copy=False
+        )
 
-        for _ in range(self.max_iter):
-            # Assign every point to its nearest current medoid.
-            distances_to_medoids = pairwise_distances(
-                embeddings, embeddings[medoid_indices], metric=self.metric
-            )
-            assignments = np.argmin(distances_to_medoids, axis=1)
+        result = kmedoids.fasterpam(
+            diss,
+            k,
+            max_iter=self.max_iter,
+            init=self.init,
+            random_state=self.seed,
+        )
 
-            new_medoids = medoid_indices.copy()
-            for cluster_idx in range(k):
-                members = np.flatnonzero(assignments == cluster_idx)
-                if members.size == 0:
-                    continue
-                # Pick the member that minimizes the total within-cluster distance.
-                within = pairwise_distances(
-                    embeddings[members], embeddings[members], metric=self.metric
-                )
-                best_local = members[int(np.argmin(within.sum(axis=1)))]
-                new_medoids[cluster_idx] = best_local
-
-            if np.array_equal(np.sort(new_medoids), np.sort(medoid_indices)):
-                break
-            medoid_indices = new_medoids
-
-        # Defensive deduplication: degenerate datasets can yield duplicate medoids.
-        unique_medoids: list[int] = []
-        seen: set[int] = set()
-        for idx in medoid_indices:
-            value = int(idx)
-            if value not in seen:
-                seen.add(value)
-                unique_medoids.append(value)
-
-        if len(unique_medoids) < k:
-            # Fill any duplicates with the farthest remaining points to keep
-            # the batch size consistent with starting_batch_size.
-            remaining = np.setdiff1d(
-                np.arange(num_samples), np.asarray(unique_medoids), assume_unique=False
-            )
-            if remaining.size > 0:
-                distances_to_selected = pairwise_distances(
-                    embeddings[remaining],
-                    embeddings[unique_medoids],
-                    metric=self.metric,
-                ).min(axis=1)
-                order = np.argsort(-distances_to_selected)
-                for idx in order:
-                    unique_medoids.append(int(remaining[idx]))
-                    if len(unique_medoids) == k:
-                        break
-
-        return unique_medoids
+        return [int(idx) for idx in result.medoids]
 
 
 class CoreSetInitialSelection(InitialSelectionStrategy):
