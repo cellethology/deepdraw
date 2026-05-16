@@ -6,8 +6,13 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import pytest
 
-from job_sub.utils.plotting_helper import plot_prop_for_col
+plotting_helper = pytest.importorskip(
+    "job_sub.utils.analysis.plotting_helper",
+    reason="analysis/ folder is gitignored; plotting_helper not present on this checkout",
+)
+plot_prop_for_col = plotting_helper.plot_prop_for_col
 
 
 def test_plot_prop_for_col_scales_to_percent_and_sets_titles() -> None:

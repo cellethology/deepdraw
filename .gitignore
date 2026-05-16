@@ -123,3 +123,6 @@ job_sub/datasets/*_local
 job_sub/datasets/*_local.*
 job_sub/datasets/**/*_local
 job_sub/datasets/**/*_local.*
+
+# Local-only analysis / figure-generation scripts (not part of the shared codebase)
+job_sub/utils/analysis/
