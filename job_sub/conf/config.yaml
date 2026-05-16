@@ -47,8 +47,8 @@ hydra:
     subdir: ${dataset_name}/${override_values:${hydra.job.override_dirname},dataset_index|single_array_across_datasets|al_settings.seed,default}
   sweeper: # multirun mode sweeps over these parameters
     params:
-      initial_selection_strategy: probcover_euclidean, core_set, random
-      embedding_model: gLM2_166k_kneedle
+      initial_selection_strategy: kmedoids
+      embedding_model: 166k_alphagenome_1bp_embeddingkneedle
       query_strategy: botorch_qlog_nei, topk, botorch_q_ucb
       predictor: botorch_gp
   launcher:
