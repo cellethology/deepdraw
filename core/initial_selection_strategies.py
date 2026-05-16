@@ -5,6 +5,7 @@ Initial selection strategies for choosing the seed batch.
 import logging
 from abc import ABC, abstractmethod
 
+import kmedoids
 import numpy as np
 from sklearn.cluster import KMeans, MiniBatchKMeans
 from sklearn.metrics import pairwise_distances, pairwise_distances_argmin_min
@@ -114,6 +115,74 @@ class KMeansInitialSelection(InitialSelectionStrategy):
             kmeans.cluster_centers_, embeddings
         )
         return closest_indices.tolist()
+
+
+class KMedoidsInitialSelection(InitialSelectionStrategy):
+    """Select initial samples via k-medoids (Partitioning Around Medoids).
+
+    Unlike :class:`KMeansInitialSelection`, which clusters around virtual
+    centroids and then snaps each centroid to its nearest data point,
+    k-medoids picks actual data points as cluster centers (medoids) by
+    minimizing the sum of within-cluster distances. The medoid is therefore
+    a representative example rather than a synthetic average, which makes the
+    method more robust to outliers and meaningful for non-Euclidean metrics.
+
+    Backed by Schubert & Rousseeuw's FasterPAM (``kmedoids`` package): a
+    Rust-implemented variant of PAM that performs swaps eagerly with an
+    O(k) speedup over textbook PAM. ``init`` defaults to ``"build"`` so
+    the optimisation starts from the PAM BUILD heuristic rather than a
+    random medoid set.
+    """
+
+    def __init__(
+        self,
+        seed: int,
+        starting_batch_size: int,
+        metric: str = "euclidean",
+        max_iter: int = 100,
+        init: str = "build",
+    ) -> None:
+        super().__init__("KMEDOIDS", starting_batch_size=starting_batch_size)
+        self.seed = seed
+        self.metric = metric
+        self.max_iter = max(1, int(max_iter))
+        self.init = init
+
+    def select(
+        self,
+        dataset: Dataset,
+    ) -> list[int]:
+        selected = self._kmedoids(embeddings=np.asarray(dataset.embeddings))
+
+        _log_initial_selection(
+            strategy_name=self.name,
+            selected_indices=selected,
+            labels=dataset.labels[selected],
+        )
+
+        return selected
+
+    def _kmedoids(self, embeddings: np.ndarray) -> list[int]:
+        num_samples = embeddings.shape[0]
+        k = min(self.starting_batch_size, num_samples)
+        if k == 0:
+            return []
+
+        # FasterPAM operates on a precomputed dissimilarity matrix. Use
+        # float32 to halve memory on large pools without changing the result.
+        diss = pairwise_distances(embeddings, metric=self.metric).astype(
+            np.float32, copy=False
+        )
+
+        result = kmedoids.fasterpam(
+            diss,
+            k,
+            max_iter=self.max_iter,
+            init=self.init,
+            random_state=self.seed,
+        )
+
+        return [int(idx) for idx in result.medoids]
 
 
 class CoreSetInitialSelection(InitialSelectionStrategy):

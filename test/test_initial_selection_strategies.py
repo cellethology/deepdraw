@@ -10,6 +10,7 @@ from core.initial_selection_strategies import (
     DensityWeightedCoreSetInitialSelection,
     DeterministicProbCoverInitialSelection,
     KMeansInitialSelection,
+    KMedoidsInitialSelection,
     RandomInitialSelection,
     TypiClustInitialSelection,
 )
@@ -47,6 +48,58 @@ def test_kmeans_initial_selection_returns_expected_count():
 
     assert len(indices) == 6
     assert len(set(indices)) == 6
+
+
+def test_kmedoids_initial_selection_returns_expected_count():
+    dataset = _create_dataset(15, embedding_dim=3)
+    strategy = KMedoidsInitialSelection(seed=42, starting_batch_size=6)
+
+    indices = strategy.select(dataset=dataset)
+
+    assert len(indices) == 6
+    assert len(set(indices)) == 6
+    assert all(0 <= idx < len(dataset.sample_ids) for idx in indices)
+
+
+def test_kmedoids_initial_selection_picks_actual_data_points():
+    """Medoids must be points from the dataset, one per cluster."""
+    rng = np.random.default_rng(0)
+    embeddings = np.vstack(
+        [
+            rng.normal(loc=(-3.0, -3.0), scale=0.05, size=(10, 2)),
+            rng.normal(loc=(3.0, 3.0), scale=0.05, size=(10, 2)),
+            rng.normal(loc=(0.0, 6.0), scale=0.05, size=(10, 2)),
+        ]
+    )
+    dataset = _dataset_from_embeddings(embeddings)
+    strategy = KMedoidsInitialSelection(seed=7, starting_batch_size=3)
+
+    indices = strategy.select(dataset)
+
+    assert len(indices) == 3
+    assert len(set(indices)) == 3
+    # Each medoid should land in a different one of the three well-separated blobs.
+    clusters = {idx // 10 for idx in indices}
+    assert clusters == {0, 1, 2}
+
+
+def test_kmedoids_initial_selection_is_deterministic_for_seed():
+    dataset = _create_dataset(20, embedding_dim=4)
+
+    strategy_a = KMedoidsInitialSelection(seed=42, starting_batch_size=5)
+    strategy_b = KMedoidsInitialSelection(seed=42, starting_batch_size=5)
+
+    assert strategy_a.select(dataset) == strategy_b.select(dataset)
+
+
+def test_kmedoids_initial_selection_caps_to_dataset_size():
+    dataset = _dataset_from_embeddings([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
+    strategy = KMedoidsInitialSelection(seed=1, starting_batch_size=10)
+
+    indices = strategy.select(dataset)
+
+    assert len(indices) == 3
+    assert len(set(indices)) == 3
 
 
 def test_core_set_initial_selection_prefers_dense_seed():
