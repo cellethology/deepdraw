@@ -116,6 +116,111 @@ class KMeansInitialSelection(InitialSelectionStrategy):
         return closest_indices.tolist()
 
 
+class KMedoidsInitialSelection(InitialSelectionStrategy):
+    """Select initial samples via k-medoids (Partitioning Around Medoids).
+
+    Unlike :class:`KMeansInitialSelection`, which clusters around virtual
+    centroids and then snaps each centroid to its nearest data point,
+    k-medoids picks actual data points as cluster centers (medoids) by
+    minimizing the sum of within-cluster distances. The medoid is therefore
+    a representative example rather than a synthetic average, which makes the
+    method more robust to outliers and meaningful for non-Euclidean metrics.
+
+    Uses the Voronoi-iteration ("alternate") variant: alternate between
+    assigning every point to its nearest medoid and replacing each medoid
+    with the in-cluster point that minimizes the total within-cluster
+    distance. Iteration stops when the medoid set is stable or
+    ``max_iter`` has been reached.
+    """
+
+    def __init__(
+        self,
+        seed: int,
+        starting_batch_size: int,
+        metric: str = "euclidean",
+        max_iter: int = 50,
+    ) -> None:
+        super().__init__("KMEDOIDS", starting_batch_size=starting_batch_size)
+        self.seed = seed
+        self.metric = metric
+        self.max_iter = max(1, int(max_iter))
+
+    def select(
+        self,
+        dataset: Dataset,
+    ) -> list[int]:
+        selected = self._kmedoids(embeddings=np.asarray(dataset.embeddings))
+
+        _log_initial_selection(
+            strategy_name=self.name,
+            selected_indices=selected,
+            labels=dataset.labels[selected],
+        )
+
+        return selected
+
+    def _kmedoids(self, embeddings: np.ndarray) -> list[int]:
+        num_samples = embeddings.shape[0]
+        k = min(self.starting_batch_size, num_samples)
+        if k == 0:
+            return []
+
+        rng = np.random.default_rng(self.seed)
+        medoid_indices = rng.choice(num_samples, size=k, replace=False)
+
+        for _ in range(self.max_iter):
+            # Assign every point to its nearest current medoid.
+            distances_to_medoids = pairwise_distances(
+                embeddings, embeddings[medoid_indices], metric=self.metric
+            )
+            assignments = np.argmin(distances_to_medoids, axis=1)
+
+            new_medoids = medoid_indices.copy()
+            for cluster_idx in range(k):
+                members = np.flatnonzero(assignments == cluster_idx)
+                if members.size == 0:
+                    continue
+                # Pick the member that minimizes the total within-cluster distance.
+                within = pairwise_distances(
+                    embeddings[members], embeddings[members], metric=self.metric
+                )
+                best_local = members[int(np.argmin(within.sum(axis=1)))]
+                new_medoids[cluster_idx] = best_local
+
+            if np.array_equal(np.sort(new_medoids), np.sort(medoid_indices)):
+                break
+            medoid_indices = new_medoids
+
+        # Defensive deduplication: degenerate datasets can yield duplicate medoids.
+        unique_medoids: list[int] = []
+        seen: set[int] = set()
+        for idx in medoid_indices:
+            value = int(idx)
+            if value not in seen:
+                seen.add(value)
+                unique_medoids.append(value)
+
+        if len(unique_medoids) < k:
+            # Fill any duplicates with the farthest remaining points to keep
+            # the batch size consistent with starting_batch_size.
+            remaining = np.setdiff1d(
+                np.arange(num_samples), np.asarray(unique_medoids), assume_unique=False
+            )
+            if remaining.size > 0:
+                distances_to_selected = pairwise_distances(
+                    embeddings[remaining],
+                    embeddings[unique_medoids],
+                    metric=self.metric,
+                ).min(axis=1)
+                order = np.argsort(-distances_to_selected)
+                for idx in order:
+                    unique_medoids.append(int(remaining[idx]))
+                    if len(unique_medoids) == k:
+                        break
+
+        return unique_medoids
+
+
 class CoreSetInitialSelection(InitialSelectionStrategy):
     """Select initial samples via k-center greedy (core-set) coverage."""
 
