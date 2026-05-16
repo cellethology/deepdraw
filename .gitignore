@@ -127,3 +127,7 @@ job_sub/datasets/*_local
 job_sub/datasets/*_local.*
 job_sub/datasets/**/*_local
 job_sub/datasets/**/*_local.*
+
+# Local-only analysis / figure-generation scripts (notebooks, sensitivity-analysis
+# helpers, etc.). Anything dropped under this folder stays out of git.
+job_sub/utils/analysis/
