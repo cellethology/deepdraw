@@ -5,7 +5,6 @@ Initial selection strategies for choosing the seed batch.
 import logging
 from abc import ABC, abstractmethod
 
-import kmedoids
 import numpy as np
 from sklearn.cluster import KMeans, MiniBatchKMeans
 from sklearn.metrics import pairwise_distances, pairwise_distances_argmin_min
@@ -142,6 +141,19 @@ class KMedoidsInitialSelection(InitialSelectionStrategy):
         max_iter: int = 100,
         init: str = "build",
     ) -> None:
+        # Imported lazily so that environments without the optional
+        # ``kmedoids`` package can still use the other strategies. Hydra
+        # only constructs this class when it's actually selected, so the
+        # ImportError surfaces immediately and only for users who opted
+        # in to k-medoids.
+        try:
+            import kmedoids  # noqa: F401  (probe install, used in _kmedoids)
+        except ImportError as exc:  # pragma: no cover - exercised only without dep
+            raise ImportError(
+                "KMedoidsInitialSelection requires the 'kmedoids' package. "
+                "Install it with `uv pip install kmedoids` (or `uv sync`)."
+            ) from exc
+
         super().__init__("KMEDOIDS", starting_batch_size=starting_batch_size)
         self.seed = seed
         self.metric = metric
@@ -163,6 +175,8 @@ class KMedoidsInitialSelection(InitialSelectionStrategy):
         return selected
 
     def _kmedoids(self, embeddings: np.ndarray) -> list[int]:
+        import kmedoids  # already validated in __init__
+
         num_samples = embeddings.shape[0]
         k = min(self.starting_batch_size, num_samples)
         if k == 0:

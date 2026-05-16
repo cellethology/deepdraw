@@ -26,7 +26,6 @@ classifiers = [
 dependencies = [
     "botorch>=0.16.1",
     "hydra-core>=1.3.2",
-    "kmedoids>=0.5.1",
     "numpy>=1.21.0",
     "pandas>=1.3.0",
     "scikit-learn>=1.6.0",
@@ -41,6 +40,9 @@ analysis = [
 cluster = [
     "hydra-submitit-launcher>=1.2.0",
     "submitit>=1.5.3",
+]
+kmedoids = [
+    "kmedoids>=0.5.1",
 ]
 
 [project.urls]
