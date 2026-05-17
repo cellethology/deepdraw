@@ -52,7 +52,7 @@ hydra:
       query_strategy: botorch_mes
       predictor: botorch_gp
   launcher:
-    timeout_min: 720
+    timeout_min: 1440
     # everything below is used only for submitting jobs to the cluster
     partition: intel-sc3-32c,amd-ep5 # no spacing between names
     cpus_per_task: 1
