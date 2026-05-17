@@ -49,7 +49,7 @@ hydra:
     params:
       initial_selection_strategy: kmedoids
       embedding_model: 166k_alphagenome_1bp_embeddingkneedle
-      query_strategy: botorch_qlog_nei
+      query_strategy: botorch_mes
       predictor: botorch_gp
   launcher:
     timeout_min: 720
