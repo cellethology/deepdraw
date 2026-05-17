@@ -3,6 +3,7 @@ Tests for initial selection strategies.
 """
 
 import numpy as np
+import pytest
 
 from core.data_loader import Dataset
 from core.initial_selection_strategies import (
@@ -13,6 +14,23 @@ from core.initial_selection_strategies import (
     KMedoidsInitialSelection,
     RandomInitialSelection,
     TypiClustInitialSelection,
+)
+
+
+# ``kmedoids`` is an optional extra (``deepdraw[kmedoids]``). When it's not
+# installed the KMedoidsInitialSelection constructor raises ImportError, so
+# the matching tests should skip rather than fail the suite.
+def _kmedoids_available() -> bool:
+    try:
+        import kmedoids  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+kmedoids_required = pytest.mark.skipif(
+    not _kmedoids_available(),
+    reason="optional 'kmedoids' package not installed (install with `uv pip install kmedoids`)",
 )
 
 
@@ -50,6 +68,7 @@ def test_kmeans_initial_selection_returns_expected_count():
     assert len(set(indices)) == 6
 
 
+@kmedoids_required
 def test_kmedoids_initial_selection_returns_expected_count():
     dataset = _create_dataset(15, embedding_dim=3)
     strategy = KMedoidsInitialSelection(seed=42, starting_batch_size=6)
@@ -61,6 +80,7 @@ def test_kmedoids_initial_selection_returns_expected_count():
     assert all(0 <= idx < len(dataset.sample_ids) for idx in indices)
 
 
+@kmedoids_required
 def test_kmedoids_initial_selection_picks_actual_data_points():
     """Medoids must be points from the dataset, one per cluster."""
     rng = np.random.default_rng(0)
@@ -83,6 +103,7 @@ def test_kmedoids_initial_selection_picks_actual_data_points():
     assert clusters == {0, 1, 2}
 
 
+@kmedoids_required
 def test_kmedoids_initial_selection_is_deterministic_for_seed():
     dataset = _create_dataset(20, embedding_dim=4)
 
@@ -92,6 +113,7 @@ def test_kmedoids_initial_selection_is_deterministic_for_seed():
     assert strategy_a.select(dataset) == strategy_b.select(dataset)
 
 
+@kmedoids_required
 def test_kmedoids_initial_selection_caps_to_dataset_size():
     dataset = _dataset_from_embeddings([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
     strategy = KMedoidsInitialSelection(seed=1, starting_batch_size=10)
