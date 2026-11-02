@@ -5,11 +5,20 @@
 
 Deepdraw selects batches of genetic circuits to measure using sequence embeddings and accumulated experimental results. Its default search combines ProbCover initial selection, Gaussian-process prediction, and maximum-value entropy search (MES).
 
-The active-learning loop runs on CPU. AlphaGenome embedding generation has a separate optional environment. For retrospective evaluation on fully measured datasets, see [benchmarks](benchmarks/README.md).
+The active-learning loop runs on CPU. AlphaGenome embedding generation has a separate optional environment. For retrospective evaluation on fully measured datasets, see [benchmarks](https://github.com/cellethology/deepdraw/blob/main/benchmarks/README.md).
 
 ## Install
 
-Install Git and [uv](https://docs.astral.sh/uv/), then clone the repository and create the Python 3.10 environment:
+Install with Python 3.10 or later:
+
+```bash
+python -m pip install deepdraw-opt
+deepdraw --help
+```
+
+The package name is `deepdraw-opt`; the command and Python import are `deepdraw`.
+
+For the bundled example, optional AlphaGenome environment, and development, install Git and [uv](https://docs.astral.sh/uv/), then clone the repository:
 
 ```bash
 git clone https://github.com/cellethology/deepdraw.git
@@ -18,7 +27,7 @@ uv sync --python 3.10
 uv run deepdraw --help
 ```
 
-Run the commands below from the repository root.
+The commands below use `uv run` from the repository root. With a PyPI installation, invoke `deepdraw` directly instead of `uv run deepdraw`.
 
 ## Try the dummy example
 
@@ -39,7 +48,7 @@ uv run deepdraw suggest \
   --label-column Expression
 ```
 
-These commands write `deepdraw_run/round_000_to_measure.csv` and `round_001_to_measure.csv`. See the [example README](examples/deepdraw_dummy/README.md) to simulate another measurement update and exercise stopping.
+These commands write `deepdraw_run/round_000_to_measure.csv` and `round_001_to_measure.csv`. See the [example README](https://github.com/cellethology/deepdraw/blob/main/examples/deepdraw_dummy/README.md) to simulate another measurement update and exercise stopping.
 
 ## Use your own data
 
@@ -199,12 +208,12 @@ Use the resulting `embeddings.npz` with `deepdraw init`. PCA runs in the main De
 
 | Directory | Contents |
 | --- | --- |
-| [deepdraw/](deepdraw/) | CLI, experimental workflow, embedding tools, and shared presets. |
-| [core/](core/README.md) | Models, selection strategies, training, and stopping rules. |
-| [examples/deepdraw_dummy/](examples/deepdraw_dummy/README.md) | Runnable example with synthetic data. |
-| [benchmarks/](benchmarks/README.md) | Retrospective evaluation, noise simulation, and Hydra/Slurm tools. |
-| [envs/alphagenome/](envs/alphagenome/) | Optional AlphaGenome environment. |
-| [test/](test/) | Unit and workflow tests. |
+| [deepdraw/](https://github.com/cellethology/deepdraw/tree/main/deepdraw) | CLI, experimental workflow, embedding tools, and shared presets. |
+| [core/](https://github.com/cellethology/deepdraw/blob/main/core/README.md) | Models, selection strategies, training, and stopping rules. |
+| [examples/deepdraw_dummy/](https://github.com/cellethology/deepdraw/blob/main/examples/deepdraw_dummy/README.md) | Runnable example with synthetic data. |
+| [benchmarks/](https://github.com/cellethology/deepdraw/blob/main/benchmarks/README.md) | Retrospective evaluation, noise simulation, and Hydra/Slurm tools. |
+| [envs/alphagenome/](https://github.com/cellethology/deepdraw/tree/main/envs/alphagenome) | Optional AlphaGenome environment. |
+| [test/](https://github.com/cellethology/deepdraw/tree/main/test) | Unit and workflow tests. |
 
 Install development dependencies and run the tests:
 

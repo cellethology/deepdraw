@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 from hydra import compose, initialize_config_dir
-from hydra.utils import instantiate
+from hydra._internal.callbacks import Callbacks
+from hydra.core.global_hydra import GlobalHydra
+from hydra.core.plugins import Plugins
+from hydra.types import HydraContext
 from omegaconf import OmegaConf
 
 from benchmarks.utils.config_utils import register_launcher_settings
@@ -70,7 +73,14 @@ def test_launcher_settings_compose_without_cross_platform_options(launcher):
             return_hydra_config=True,
         )
         settings = cfg.hydra.launcher
-        instance = instantiate(settings)
+        instance = Plugins.instance().instantiate_launcher(
+            hydra_context=HydraContext(
+                config_loader=GlobalHydra.instance().config_loader(),
+                callbacks=Callbacks(),
+            ),
+            task_function=lambda config: None,
+            config=cfg,
+        )
         if launcher == "submitit_slurm":
             assert type(instance).__name__ == "SlurmLauncher"
             assert settings.partition is None

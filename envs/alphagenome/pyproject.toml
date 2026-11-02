@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Isolated runtime for Deepdraw AlphaGenome embedding extraction"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "deepdraw",
+    "deepdraw-opt",
     "alphagenome>=0.6.1",
     "alphagenome_research",
     "dm-haiku",
@@ -24,5 +24,5 @@ dependencies = [
 package = false
 
 [tool.uv.sources]
-deepdraw = { path = "../..", editable = true }
+deepdraw-opt = { path = "../..", editable = true }
 alphagenome_research = { git = "https://github.com/google-deepmind/alphagenome_research.git" }
