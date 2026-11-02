@@ -265,6 +265,7 @@ def test_threshold_uses_noisy_observations_instead_of_reference(
         simulator.replicate_counts[indices] = 1
 
     monkeypatch.setattr(simulator, "measure", measure)
+    experiment.dataset.labels = experiment.dataset.labels.copy()
     experiment.dataset.labels[:2] = 1000.0
     records = experiment.run_experiment(max_rounds=0)
     assert len(records) == 1
@@ -284,6 +285,7 @@ def test_unmeasured_reference_scores_do_not_change_ei(
     second = _experiment(
         tmp_path, stopping_rule="ei", epsilon=1e6, predictor=predictor_class()
     )
+    second.dataset.labels = second.dataset.labels.copy()
     second.dataset.labels[2:] *= 10000
     second.run_experiment(max_rounds=0)
     assert first.stopping_result == second.stopping_result
