@@ -1,7 +1,0 @@
-_target_: core.query_strategies.BoTorchAcquisition
-acquisition: jes
-maximize: true
-seed: null
-num_optima: 32
-num_samples: 64
-discrete_optimizer: exact

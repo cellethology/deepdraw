@@ -4,7 +4,7 @@ import json
 
 import pandas as pd
 
-from job_sub.aggregate_summaries import combine_summaries
+from benchmarks.aggregate_summaries import combine_summaries
 
 
 def test_combine_summaries_writes_only_by_round_csv(tmp_path):

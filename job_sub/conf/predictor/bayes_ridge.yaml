@@ -1,4 +1,0 @@
-# conf/predictor/bayesian_ridge_regressor.yaml
-_target_: sklearn.linear_model.BayesianRidge
-random_state: ${al_settings.seed}
-max_iter: 500

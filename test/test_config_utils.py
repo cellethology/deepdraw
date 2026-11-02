@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from job_sub.utils import config_utils as cu
+from benchmarks.utils import config_utils as cu
 
 
 @pytest.fixture(autouse=True)
@@ -150,6 +150,19 @@ def test_load_datasets_or_raise_when_empty(tmp_path: Path) -> None:
     config_path.write_text("datasets_file: datasets/does_not_exist.yaml\n")
 
     with pytest.raises(RuntimeError, match="No datasets configured"):
+        cu.load_datasets_or_raise([], config_path)
+
+
+def test_benchmark_requires_explicit_dataset_file(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("datasets_file: null\n")
+    assert cu.load_dataset_configs() == []
+
+    def unexpected_load(*args, **kwargs):
+        raise AssertionError("A benchmark must not fall back to local datasets.")
+
+    monkeypatch.setattr(cu, "load_dataset_configs", unexpected_load)
+    with pytest.raises(RuntimeError, match="datasets_file="):
         cu.load_datasets_or_raise([], config_path)
 
 

@@ -16,7 +16,6 @@ SUMMARY_METRIC_RULES = {
     "auc_true": ("max_accumulate", "normalized_true"),
     "avg_top": ("top_mean", "n_top"),
     "rounds_to_top": ("rounds_to_top", "n_top"),
-    "rounds_to_confirm_top": ("rounds_to_top", "n_confirmed_top"),
     "best_true_score_found": ("max_overall", "best_true_score_found"),
     "overall_true": ("max_overall", "normalized_true"),
     "max_train_spearman": ("max_overall", "train_spearman"),
@@ -39,6 +38,7 @@ class RoundTracker:
         self.sample_ids = sample_ids
         self.rounds: list[dict[str, Any]] = []
         self.round_num = 0
+        self.summary_metric_rules = dict(SUMMARY_METRIC_RULES)
 
     def track_round(
         self,
@@ -121,7 +121,7 @@ class RoundTracker:
 
         summary_values: dict[str, float] = {}
 
-        for metric_name, (rule, metric_column) in SUMMARY_METRIC_RULES.items():
+        for metric_name, (rule, metric_column) in self.summary_metric_rules.items():
             if metric_column not in rounds[0]:
                 raise ValueError(f"Metric column {metric_name} not found in rounds")
 

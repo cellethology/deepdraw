@@ -11,46 +11,15 @@ import torch
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
 from botorch.models.ensemble import EnsembleModel
-from botorch.models.kernels.infinite_width_bnn import InfiniteWidthBNNKernel
 from gpytorch.constraints import GreaterThan
-from gpytorch.kernels import LinearKernel, MaternKernel, RBFKernel, ScaleKernel
+from gpytorch.kernels import LinearKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.priors import GammaPrior
 from sklearn.base import RegressorMixin
 from sklearn.ensemble import RandomForestRegressor
 
-
-def _get_default_outcome_transform():
-    return _DEFAULT_OUTCOME_TRANSFORM
-
-
-class _DefaultOutcomeTransformSentinel:
-    def __reduce__(self):
-        return _get_default_outcome_transform, ()
-
-
-_DEFAULT_OUTCOME_TRANSFORM = _DefaultOutcomeTransformSentinel()
-
-
-def _resolve_rrp_model_class():
-    try:
-        from botorch.models import RobustRelevancePursuitSingleTaskGP
-
-        return RobustRelevancePursuitSingleTaskGP
-    except Exception:
-        try:
-            from botorch.models.robust_relevance_pursuit_model import (
-                RobustRelevancePursuitSingleTaskGP,
-            )
-
-            return RobustRelevancePursuitSingleTaskGP
-        except Exception as nested_exc:  # pragma: no cover - import guard
-            raise ImportError(
-                "RobustRelevancePursuitSingleTaskGP is not available in this "
-                "BoTorch install. Upgrade botorch to a version that provides "
-                "robust_relevance_pursuit_model."
-            ) from nested_exc
+from core.stable_rbf_kernel import StableRBFKernel
 
 
 class _RandomForestEnsembleModel(EnsembleModel):
@@ -154,36 +123,15 @@ class _BoTorchBaseRegressor(RegressorMixin):
         ard_dims = X_tensor.shape[-1] if self.ard else None
         kernel_key = str(self.kernel).lower()
         if kernel_key in {"rbf", "se", "squared_exponential"}:
-            base_kernel = RBFKernel(ard_num_dims=ard_dims)
+            base_kernel = StableRBFKernel(ard_num_dims=ard_dims)
             return ScaleKernel(base_kernel)
         elif kernel_key in {"linear"}:
             # LinearKernel already has its own variance parameter, so wrapping it
             # again in ScaleKernel adds a redundant output scale and makes fitting
             # less stable on tiny high-dimensional batches.
             return LinearKernel(ard_num_dims=ard_dims)
-        elif kernel_key in {
-            "infinite_width_bnn",
-            "infinitewidthbnn",
-            "iwbnn",
-            "bnn",
-        }:
-            base_kernel = InfiniteWidthBNNKernel()
-            return ScaleKernel(base_kernel)
-        elif kernel_key in {"matern_12", "matern12", "matern_1/2", "matern-1/2"}:
-            base_kernel = MaternKernel(nu=0.5, ard_num_dims=ard_dims)
-            return ScaleKernel(base_kernel)
-        elif kernel_key in {"matern_32", "matern32", "matern_3/2", "matern-3/2"}:
-            base_kernel = MaternKernel(nu=1.5, ard_num_dims=ard_dims)
-            return ScaleKernel(base_kernel)
-        elif kernel_key in {"matern_52", "matern52", "matern_5/2", "matern-5/2"}:
-            base_kernel = MaternKernel(nu=2.5, ard_num_dims=ard_dims)
-            return ScaleKernel(base_kernel)
         else:
-            raise ValueError(
-                "Unsupported kernel "
-                f"'{self.kernel}'. Use linear, infinite_width_bnn, rbf, "
-                "matern_12, matern_32, or matern_52."
-            )
+            raise ValueError(f"Unsupported kernel '{self.kernel}'. Use rbf or linear.")
 
     def _to_tensor(self, array: np.ndarray) -> torch.Tensor:
         device = self._resolve_device()
@@ -288,85 +236,6 @@ class BoTorchGPRegressor(_BoTorchBaseRegressor):
                 "noise",
             )
         return likelihood
-
-
-class BoTorchRobustRelevancePursuitGPRegressor(_BoTorchBaseRegressor):
-    """
-    Sklearn-compatible wrapper around RobustRelevancePursuitSingleTaskGP.
-    """
-
-    def __init__(
-        self,
-        device: str = "cpu",
-        dtype: str = "float64",
-        ard: bool = False,
-        kernel: str = "rbf",
-        convex_parameterization: bool = True,
-        prior_mean_of_support: float | None = None,
-        cache_model_trace: bool = False,
-        outcome_transform: Any = _DEFAULT_OUTCOME_TRANSFORM,
-        input_transform: Any | None = None,
-        model_kwargs: dict[str, Any] | None = None,
-    ) -> None:
-        super().__init__(
-            device=device,
-            dtype=dtype,
-            ard=ard,
-            kernel=kernel,
-        )
-        self.convex_parameterization = convex_parameterization
-        self.prior_mean_of_support = prior_mean_of_support
-        self.cache_model_trace = cache_model_trace
-        self.outcome_transform = outcome_transform
-        self.input_transform = input_transform
-        self.model_kwargs = model_kwargs
-
-    def get_params(self, deep: bool = True) -> dict[str, Any]:
-        params = super().get_params(deep=deep)
-        params.update(
-            {
-                "convex_parameterization": self.convex_parameterization,
-                "prior_mean_of_support": self.prior_mean_of_support,
-                "cache_model_trace": self.cache_model_trace,
-                "outcome_transform": self.outcome_transform,
-                "input_transform": self.input_transform,
-                "model_kwargs": self.model_kwargs,
-            }
-        )
-        return params
-
-    def fit(
-        self, X: np.ndarray, y: np.ndarray
-    ) -> BoTorchRobustRelevancePursuitGPRegressor:
-        X_tensor = self._to_tensor(X)
-        y_tensor = self._to_tensor(y).view(-1, 1)
-
-        covar_module = self._build_kernel(X_tensor)
-        model_cls = _resolve_rrp_model_class()
-
-        model_kwargs: dict[str, Any] = (
-            dict(self.model_kwargs) if self.model_kwargs is not None else {}
-        )
-        model_kwargs.update(
-            {
-                "covar_module": covar_module.to(
-                    device=X_tensor.device, dtype=X_tensor.dtype
-                ),
-                "convex_parameterization": self.convex_parameterization,
-                "prior_mean_of_support": self.prior_mean_of_support,
-                "cache_model_trace": self.cache_model_trace,
-            }
-        )
-        if self.input_transform is not None:
-            model_kwargs["input_transform"] = self.input_transform
-        if self.outcome_transform is not _DEFAULT_OUTCOME_TRANSFORM:
-            model_kwargs["outcome_transform"] = self.outcome_transform
-        self.model_ = model_cls(X_tensor, y_tensor, **model_kwargs)
-        self.model_.train()
-        mll = ExactMarginalLogLikelihood(self.model_.likelihood, self.model_)
-        self._fit_mll(mll)
-        self.model_.eval()
-        return self
 
 
 class BoTorchRandomForestEnsembleRegressor(_BoTorchBaseRegressor):

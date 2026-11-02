@@ -39,7 +39,6 @@ class MetricsCalculator:
         train_predictions: np.ndarray | None,
         pool_indices: np.ndarray,
         pool_predictions: np.ndarray | None,
-        confirmed_top_indices: np.ndarray | None = None,
         top_p: float = 0.01,
     ) -> dict[str, float]:
         """
@@ -51,17 +50,12 @@ class MetricsCalculator:
             train_predictions: Model predictions for the training set
             pool_indices: Indices remaining in the unlabeled pool
             pool_predictions: Model predictions for the pool set
-            confirmed_top_indices: Selected indices confirmed as true top performers
             top_p: Percentage of top labels to consider
         """
         # Number of selected samples within the top performers
         n_top = self.n_selected_in_top(
             selected_indices=selected_indices,
             top_p=top_p,
-        )
-        n_confirmed_top = self._n_confirmed_top(
-            selected_indices=selected_indices,
-            confirmed_top_indices=confirmed_top_indices,
         )
 
         # Best value ground truth
@@ -93,7 +87,6 @@ class MetricsCalculator:
 
         return {
             "n_top": n_top,
-            "n_confirmed_top": n_confirmed_top,
             "best_true": self._round_metric(best_value_true),
             "normalized_true": self._round_metric(normalized_true_values),
             "train_spearman": self._round_metric(train_spearman),
@@ -170,22 +163,6 @@ class MetricsCalculator:
         if corr is None:
             return float("nan")
         return float(corr)
-
-    def _n_confirmed_top(
-        self,
-        selected_indices: np.ndarray,
-        confirmed_top_indices: np.ndarray | None,
-    ) -> int:
-        if confirmed_top_indices is None:
-            return self.n_selected_in_top(selected_indices=selected_indices)
-        return int(
-            len(
-                np.intersect1d(
-                    np.asarray(selected_indices),
-                    np.asarray(confirmed_top_indices),
-                )
-            )
-        )
 
     def _round_metric(self, value: float, digits: int = 6) -> float:
         if np.isnan(value):

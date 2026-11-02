@@ -1,3 +1,0 @@
-# conf/model/gaussian_regressor.yaml
-_target_: sklearn.gaussian_process.GaussianProcessRegressor
-random_state: ${al_settings.seed}

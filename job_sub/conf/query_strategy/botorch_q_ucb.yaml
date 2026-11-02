@@ -1,5 +1,0 @@
-_target_: core.query_strategies.BoTorchAcquisition
-acquisition: q_ucb
-beta: 0.2
-maximize: true
-discrete_optimizer: exact

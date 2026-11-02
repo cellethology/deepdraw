@@ -1,5 +1,5 @@
 """
-Tests for run_active_learning.run_one_experiment.
+Tests for benchmarks.run_active_learning.run_one_experiment.
 """
 
 import json
@@ -13,7 +13,7 @@ from omegaconf import OmegaConf
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
-from run_active_learning import make_steps, run_one_experiment
+from benchmarks.run_active_learning import make_steps, run_one_experiment
 
 
 def _make_dataset(tmp_path, n_samples=8, dim=4):
@@ -69,8 +69,50 @@ def _patch_make_steps(monkeypatch):
     def _make_steps(steps_cfg):
         return steps_cfg
 
-    monkeypatch.setattr("run_active_learning.make_steps", _make_steps)
-    monkeypatch.setattr("run_active_learning.instantiate", lambda obj: obj)
+    monkeypatch.setattr("benchmarks.run_active_learning.make_steps", _make_steps)
+    monkeypatch.setattr("benchmarks.run_active_learning.instantiate", lambda obj: obj)
+
+
+def test_run_single_experiment_records_phenotype_threshold_stop(tmp_path, monkeypatch):
+    cfg = _build_cfg(tmp_path)
+    cfg.al_settings.update(
+        stopping_rule="threshold", phenotype_threshold=0.1, max_rounds=3
+    )
+    _patch_make_steps(monkeypatch)
+
+    summary = run_one_experiment(cfg)
+
+    assert summary["completed_rounds"] == 1
+    assert summary["stopped_early"] is True
+    assert summary["failure_info"] is None
+    assert summary["stopping"]["rule"] == "threshold"
+    assert summary["stopping"]["phenotype_threshold"] == 0.1
+    assert summary["stopping"]["triggered"] is True
+    assert summary["stopping"]["stop_info"]["reason"] == "phenotype_threshold"
+    assert summary["confirmed_top_stopping"]["triggered"] is False
+
+
+def test_run_single_experiment_requires_ei_epsilon(tmp_path, monkeypatch):
+    cfg = _build_cfg(tmp_path)
+    cfg.al_settings["stopping_rule"] = "ei"
+    _patch_make_steps(monkeypatch)
+
+    with pytest.raises(ValueError, match="epsilon"):
+        run_one_experiment(cfg)
+
+
+def test_threshold_met_at_batch_budget_is_not_reported_as_early(tmp_path, monkeypatch):
+    cfg = _build_cfg(tmp_path)
+    cfg.al_settings.update(
+        stopping_rule="threshold", phenotype_threshold=0.1, max_rounds=0
+    )
+    _patch_make_steps(monkeypatch)
+
+    summary = run_one_experiment(cfg)
+
+    assert summary["completed_rounds"] == summary["requested_total_rounds"] == 1
+    assert summary["stopping"]["triggered"] is True
+    assert summary["stopped_early"] is False
 
 
 def test_run_single_experiment_creates_summary(tmp_path, monkeypatch):
@@ -89,11 +131,16 @@ def test_run_single_experiment_creates_summary(tmp_path, monkeypatch):
     saved_summary = json.loads(summary_path.read_text())
     assert saved_summary["query_strategy"] == summary["query_strategy"]
     assert saved_summary["measurement_simulation"] == {}
+    assert "rounds_to_confirm_top" not in saved_summary
+    assert "n_confirmed_top" not in pd.read_csv(results_path).columns
+    assert all(
+        "rounds_to_confirm_top" not in record
+        for record in saved_summary["summary_by_round"]
+    )
     for key in (
         "auc_true",
         "avg_top",
         "rounds_to_top",
-        "rounds_to_confirm_top",
         "best_true_score_found",
         "overall_true",
         "max_train_spearman",
@@ -123,7 +170,7 @@ def test_make_steps_builds_pipeline(monkeypatch):
         ]
     )
     monkeypatch.setattr(
-        "run_active_learning.instantiate",
+        "benchmarks.run_active_learning.instantiate",
         lambda cfg: DummyTransformer(),
     )
     steps = make_steps(step_cfg)
@@ -138,7 +185,7 @@ def test_run_single_experiment_logs_dataset_name(tmp_path, monkeypatch, caplog):
     cfg.dataset_name = "demo_dataset"
     _patch_make_steps(monkeypatch)
 
-    with caplog.at_level("INFO", logger="run_active_learning"):
+    with caplog.at_level("INFO", logger="benchmarks.run_active_learning"):
         run_one_experiment(cfg)
 
     assert any(
@@ -168,8 +215,61 @@ def test_run_single_experiment_saves_partial_results_on_selection_failure(
     assert summary_path.exists()
     assert summary["stopped_early"] is True
     assert summary["completed_rounds"] == 1
+    assert summary["requested_total_rounds"] == 2
     assert summary["failure_info"]["stage"] == "select"
 
     saved_summary = json.loads(summary_path.read_text())
     assert saved_summary["stopped_early"] is True
     assert saved_summary["failure_info"]["stage"] == "select"
+
+
+def test_run_single_experiment_records_intentional_confirmed_top_stop(
+    tmp_path, monkeypatch
+):
+    cfg = _build_cfg(tmp_path)
+    metadata = pd.read_csv(cfg.metadata_path)
+    metadata["Expression"] = [10.0, *np.linspace(1.0, 0.1, len(metadata) - 1)]
+    metadata.to_csv(cfg.metadata_path, index=False)
+    cfg.measurement_simulation = {
+        "enabled": True,
+        "replicates_per_construct": 2,
+        "noise_sigma_log10_expression": 0.0,
+        "confirmation_z": 1.96,
+    }
+    cfg.confirmed_top_stopping = {
+        "enabled": True,
+        "confirmation_z": 0.0,
+        "min_total_rounds": 1,
+    }
+    _patch_make_steps(monkeypatch)
+
+    summary = run_one_experiment(cfg)
+
+    assert summary["completed_rounds"] == 1
+    assert summary["stopped_early"] is True
+    assert summary["failure_info"] is None
+    assert summary["rounds_to_confirm_top"] == 1.0
+    assert summary["summary_by_round"][0]["rounds_to_confirm_top"] == 1.0
+    assert summary["confirmed_top_stopping"] == {
+        "enabled": True,
+        "min_total_rounds": 1,
+        "confirmation_z": 0.0,
+        "triggered": True,
+        "first_confirmation_round": 1,
+        "stop_info": {
+            "reason": "confirmed_top",
+            "round": 1,
+            "first_confirmation_round": 1,
+            "confirmation_z": 0.0,
+            "min_total_rounds": 1,
+            "n_confirmed_top_at_stop": 1,
+        },
+    }
+    assert (
+        len(
+            pd.read_csv(
+                Path(cfg.al_settings["output_dir"]) / "simulated_measurements.csv"
+            )
+        )
+        == 4
+    )

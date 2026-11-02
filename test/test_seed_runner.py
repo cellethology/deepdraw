@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from omegaconf import OmegaConf
 
-from job_sub.utils import seed_runner
+from benchmarks.utils import seed_runner
 
 
 def test_run_seed_experiment_with_snapshot_writes_resolved_config(

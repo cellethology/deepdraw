@@ -9,29 +9,12 @@ from core.data_loader import Dataset
 from core.initial_selection_strategies import (
     CoreSetInitialSelection,
     DensityWeightedCoreSetInitialSelection,
-    DeterministicProbCoverInitialSelection,
     KMeansInitialSelection,
-    KMedoidsInitialSelection,
+    ProbCoverInitialSelection,
     RandomInitialSelection,
     TypiClustInitialSelection,
 )
-
-
-# ``kmedoids`` is an optional extra (``deepdraw[kmedoids]``). When it's not
-# installed the KMedoidsInitialSelection constructor raises ImportError, so
-# the matching tests should skip rather than fail the suite.
-def _kmedoids_available() -> bool:
-    try:
-        import kmedoids  # noqa: F401
-    except ImportError:
-        return False
-    return True
-
-
-kmedoids_required = pytest.mark.skipif(
-    not _kmedoids_available(),
-    reason="optional 'kmedoids' package not installed (install with `uv pip install kmedoids`)",
-)
+from deepdraw.workflow import _instantiate_component
 
 
 def _create_dataset(n_samples: int, embedding_dim: int = 4) -> Dataset:
@@ -66,62 +49,6 @@ def test_kmeans_initial_selection_returns_expected_count():
 
     assert len(indices) == 6
     assert len(set(indices)) == 6
-
-
-@kmedoids_required
-def test_kmedoids_initial_selection_returns_expected_count():
-    dataset = _create_dataset(15, embedding_dim=3)
-    strategy = KMedoidsInitialSelection(seed=42, starting_batch_size=6)
-
-    indices = strategy.select(dataset=dataset)
-
-    assert len(indices) == 6
-    assert len(set(indices)) == 6
-    assert all(0 <= idx < len(dataset.sample_ids) for idx in indices)
-
-
-@kmedoids_required
-def test_kmedoids_initial_selection_picks_actual_data_points():
-    """Medoids must be points from the dataset, one per cluster."""
-    rng = np.random.default_rng(0)
-    embeddings = np.vstack(
-        [
-            rng.normal(loc=(-3.0, -3.0), scale=0.05, size=(10, 2)),
-            rng.normal(loc=(3.0, 3.0), scale=0.05, size=(10, 2)),
-            rng.normal(loc=(0.0, 6.0), scale=0.05, size=(10, 2)),
-        ]
-    )
-    dataset = _dataset_from_embeddings(embeddings)
-    strategy = KMedoidsInitialSelection(seed=7, starting_batch_size=3)
-
-    indices = strategy.select(dataset)
-
-    assert len(indices) == 3
-    assert len(set(indices)) == 3
-    # Each medoid should land in a different one of the three well-separated blobs.
-    clusters = {idx // 10 for idx in indices}
-    assert clusters == {0, 1, 2}
-
-
-@kmedoids_required
-def test_kmedoids_initial_selection_is_deterministic_for_seed():
-    dataset = _create_dataset(20, embedding_dim=4)
-
-    strategy_a = KMedoidsInitialSelection(seed=42, starting_batch_size=5)
-    strategy_b = KMedoidsInitialSelection(seed=42, starting_batch_size=5)
-
-    assert strategy_a.select(dataset) == strategy_b.select(dataset)
-
-
-@kmedoids_required
-def test_kmedoids_initial_selection_caps_to_dataset_size():
-    dataset = _dataset_from_embeddings([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
-    strategy = KMedoidsInitialSelection(seed=1, starting_batch_size=10)
-
-    indices = strategy.select(dataset)
-
-    assert len(indices) == 3
-    assert len(set(indices)) == 3
 
 
 def test_core_set_initial_selection_prefers_dense_seed():
@@ -388,152 +315,54 @@ def test_typiclust_initial_selection_falls_back_when_clusters_filtered():
     assert len(set(indices)) == 5
 
 
-def test_deterministic_probcover_is_seed_invariant():
-    rng = np.random.default_rng(0)
-    embeddings = np.vstack(
-        [
-            rng.normal(loc=(-2.0, -2.0), scale=0.25, size=(20, 2)),
-            rng.normal(loc=(2.0, 2.0), scale=0.25, size=(20, 2)),
-            rng.normal(loc=(0.0, 4.0), scale=0.25, size=(20, 2)),
-        ]
-    )
-    dataset = _dataset_from_embeddings(embeddings)
-
-    strategy_a = DeterministicProbCoverInitialSelection(
-        seed=0,
-        starting_batch_size=6,
-        metric="euclidean",
-        auto_delta=True,
-        delta_sample_size=18,
-        pair_sample_size=36,
-        representative_clusters=6,
-    )
-    strategy_b = DeterministicProbCoverInitialSelection(
-        seed=999,
-        starting_batch_size=6,
-        metric="euclidean",
-        auto_delta=True,
-        delta_sample_size=18,
-        pair_sample_size=36,
-        representative_clusters=6,
-    )
-
-    indices_a = strategy_a.select(dataset)
-    indices_b = strategy_b.select(dataset)
-
-    assert indices_a == indices_b
-    assert strategy_a.delta == strategy_b.delta
-
-
-def test_deterministic_probcover_fallback_fill_uses_sorted_indices():
-    dataset = _dataset_from_embeddings(
-        [
-            [0.0, 0.0],
-            [10.0, 0.0],
-            [20.0, 0.0],
-            [30.0, 0.0],
-        ]
-    )
-    strategy = DeterministicProbCoverInitialSelection(
-        seed=5,
-        starting_batch_size=3,
-        delta=0.0,
-        metric="euclidean",
-        auto_delta=False,
-    )
-
-    indices = strategy.select(dataset)
-
-    assert indices == [0, 1, 2]
-
-
-def test_deterministic_probcover_estimate_delta_falls_back_to_default_when_no_candidates(
-    monkeypatch,
+@pytest.mark.parametrize(
+    "name, metric, label, joins_same_direction",
+    [
+        ("probcover", "euclidean", "PROBCOVER", False),
+        ("probcover_cosine", "cosine", "PROBCOVER_COSINE", True),
+    ],
+)
+def test_probcover_presets_use_the_expected_distance(
+    name, metric, label, joins_same_direction
 ):
-    embeddings = np.array([[0.0, 0.0], [0.0, 0.0]], dtype=float)
-    strategy = DeterministicProbCoverInitialSelection(
-        seed=0,
-        starting_batch_size=1,
-        auto_delta=True,
-        delta=None,
-        metric="euclidean",
+    strategy = _instantiate_component(
+        kind="initial_selection_strategy",
+        name=name,
+        al_settings={"seed": 0, "starting_batch_size": 2},
     )
-
-    monkeypatch.setattr(
-        DeterministicProbCoverInitialSelection,
-        "_compute_pseudo_labels",
-        lambda self, embeddings, num_clusters: np.zeros(len(embeddings), dtype=int),
-    )
-    monkeypatch.setattr(
-        DeterministicProbCoverInitialSelection,
-        "_select_representative_indices",
-        lambda self, embeddings, sample_size: np.arange(
-            min(sample_size, len(embeddings)), dtype=int
-        ),
-    )
-    monkeypatch.setattr(
-        DeterministicProbCoverInitialSelection,
-        "_candidate_deltas",
-        lambda self, embeddings: np.array([], dtype=float),
-    )
-
-    assert strategy._estimate_delta(embeddings) == 0.5
+    assert strategy.metric == metric
+    assert strategy.name == label
+    if name == "probcover":
+        assert ProbCoverInitialSelection(seed=0, starting_batch_size=2).metric == metric
+    strategy.auto_delta = False
+    strategy.delta = 0.2
+    dataset = _dataset_from_embeddings([[1.0, 0.0], [2.0, 0.0], [1.0, 0.1]])
+    rows, columns = strategy._construct_graph(dataset.embeddings)
+    edges = set(zip(rows.tolist(), columns.tolist(), strict=True))
+    assert ((0, 1) in edges) is joins_same_direction
+    assert (0, 2) in edges
+    selected = strategy.select(dataset)
+    assert len(selected) == len(set(selected)) == 2
 
 
-def test_deterministic_probcover_candidate_deltas_handles_cosine():
-    embeddings = np.array(
-        [
-            [1.0, 0.0],
-            [0.0, 1.0],
-            [1.0, 1.0],
-            [1.0, -1.0],
-        ],
-        dtype=float,
-    )
-    strategy = DeterministicProbCoverInitialSelection(
-        seed=0,
-        starting_batch_size=2,
-        metric="cosine",
-        pair_sample_size=6,
-        delta_candidates=5,
-        representative_clusters=3,
-    )
-
-    candidates = strategy._candidate_deltas(embeddings)
-
-    assert candidates.size > 0
-    assert np.all(np.isfinite(candidates))
-    assert np.all(candidates > 0)
-    assert np.all(np.diff(candidates) >= 0)
+@pytest.mark.parametrize(
+    "factory",
+    [
+        CoreSetInitialSelection,
+        DensityWeightedCoreSetInitialSelection,
+        KMeansInitialSelection,
+    ],
+)
+def test_identical_embeddings_still_select_distinct_circuits(factory):
+    dataset = _dataset_from_embeddings(np.ones((12, 4)))
+    selected = factory(seed=0, starting_batch_size=8).select(dataset)
+    assert len(selected) == 8
+    assert len(set(selected)) == 8
+    assert set(selected).issubset(range(12))
 
 
-def test_deterministic_probcover_select_representatives_returns_all_when_sample_covers_dataset():
-    embeddings = np.array(
-        [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]],
-        dtype=float,
-    )
-    strategy = DeterministicProbCoverInitialSelection(
-        seed=0,
-        starting_batch_size=2,
-        metric="euclidean",
-    )
-
-    indices = strategy._select_representative_indices(embeddings, sample_size=5)
-
-    assert np.array_equal(indices, np.array([0, 1, 2], dtype=int))
-
-
-def test_deterministic_probcover_allocate_cluster_counts_respects_limits():
-    strategy = DeterministicProbCoverInitialSelection(
-        seed=0,
-        starting_batch_size=2,
-        metric="euclidean",
-    )
-
-    counts = strategy._allocate_cluster_counts([10, 1, 1], sample_size=4)
-
-    assert sum(counts) == 4
-    assert counts[0] >= counts[1]
-    assert counts[0] >= counts[2]
-    assert counts[1] >= 1
-    assert counts[2] >= 1
+@pytest.mark.parametrize("factory", [RandomInitialSelection, KMeansInitialSelection])
+def test_initial_batch_can_cover_a_smaller_pool(factory):
+    dataset = _dataset_from_embeddings(np.arange(12).reshape(3, 4).astype(float))
+    selected = factory(seed=0, starting_batch_size=12).select(dataset)
+    assert sorted(selected) == [0, 1, 2]

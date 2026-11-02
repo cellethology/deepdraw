@@ -7,7 +7,9 @@ selection strategies for active learning experiments.
 
 import inspect
 import logging
+import os
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from typing import Any
 
 import numpy as np
@@ -53,10 +55,21 @@ class QueryStrategyBase(ABC):
         # Early return if pool is smaller than batch size
         if len(unlabeled_pool) < batch_size:
             logger.info("%s: selecting all remaining candidates.", self.name)
-            return unlabeled_pool
-
-        # Delegate to strategy-specific selection logic
-        selected_indices = self._select_batch(experiment, unlabeled_pool, batch_size)
+            selected_indices = list(unlabeled_pool)
+        else:
+            selected_indices = self._select_batch(
+                experiment, unlabeled_pool, batch_size
+            )
+        if len(selected_indices) != selected_count:
+            raise ValueError("Selection returned an incorrect number of circuits.")
+        if len(set(selected_indices)) != len(selected_indices):
+            raise ValueError("Selection returned duplicate circuit indices.")
+        if not set(selected_indices).issubset(set(unlabeled_pool)):
+            raise ValueError(
+                "Selection returned a circuit outside the unmeasured pool."
+            )
+        if set(selected_indices).intersection(experiment.train_indices):
+            raise ValueError("Selection returned a previously measured circuit.")
         logger.info("%s: selection complete.", self.name)
         self._log_round(selected_indices)
         return selected_indices
@@ -162,7 +175,7 @@ class BoTorchAcquisition(QueryStrategyBase):
 
     def __init__(
         self,
-        acquisition: str = "ei",
+        acquisition: str = "mes",
         beta: float = 2.0,
         maximize: bool = True,
         seed: int | None = None,
@@ -171,6 +184,8 @@ class BoTorchAcquisition(QueryStrategyBase):
         num_optima: int = 32,
         num_samples: int | None = None,
         discrete_optimizer: str = "exact",
+        max_batch_size: int = 2048,
+        num_threads: int | None = None,
     ) -> None:
         super().__init__(acquisition.upper())
         self.acquisition = acquisition.lower()
@@ -188,6 +203,12 @@ class BoTorchAcquisition(QueryStrategyBase):
         if optimizer not in {"exact", "greedy"}:
             raise ValueError("discrete_optimizer must be 'exact' or 'greedy'.")
         self.discrete_optimizer = optimizer
+        if int(max_batch_size) < 1:
+            raise ValueError("max_batch_size must be positive.")
+        if num_threads is not None and int(num_threads) < 1:
+            raise ValueError("num_threads must be positive when specified.")
+        self.max_batch_size = int(max_batch_size)
+        self.num_threads = int(num_threads) if num_threads is not None else None
 
     def _select_batch(
         self, experiment: Any, unlabeled_pool: list[int], batch_size: int
@@ -238,17 +259,6 @@ class BoTorchAcquisition(QueryStrategyBase):
             train_X=X_train_tensor.squeeze(-2),
             candidate_set=X_tensor.squeeze(-2),
         )
-        if self.acquisition == "ts":
-            logger.info(
-                "%s: using direct posterior sampling for batch selection.", self.name
-            )
-            selected_local = self._select_thompson_batch(
-                torch=torch,
-                model=botorch_model,
-                X_tensor=X_tensor,
-                batch_size=batch_size,
-            )
-            return [unlabeled_pool[i] for i in selected_local]
         selected_local = self._optimize_discrete(
             torch=torch,
             acq=acq,
@@ -284,7 +294,7 @@ class BoTorchAcquisition(QueryStrategyBase):
             if self.num_mv_samples is not None:
                 kwargs["num_mv_samples"] = self.num_mv_samples
             kwargs["use_gumbel"] = self.use_gumbel
-        if self.acquisition in {"pes", "jes"}:
+        if self.acquisition == "pes":
             optimal_inputs, optimal_outputs = self._sample_optima_from_candidates(
                 torch=torch,
                 model=model,
@@ -310,14 +320,6 @@ class BoTorchAcquisition(QueryStrategyBase):
             from botorch.acquisition.analytic import UpperConfidenceBound
 
             return UpperConfidenceBound
-        if self.acquisition in {"q_ucb", "qucb"}:
-            from botorch.acquisition.monte_carlo import qUpperConfidenceBound
-
-            return qUpperConfidenceBound
-        if self.acquisition == "ts":
-            from botorch.acquisition.thompson_sampling import PathwiseThompsonSampling
-
-            return PathwiseThompsonSampling
         if self.acquisition == "qlog_ei":
             from botorch.acquisition.logei import qLogExpectedImprovement
 
@@ -342,13 +344,9 @@ class BoTorchAcquisition(QueryStrategyBase):
             )
 
             return qPredictiveEntropySearch
-        if self.acquisition == "jes":
-            from botorch.acquisition.joint_entropy_search import qJointEntropySearch
-
-            return qJointEntropySearch
         raise ValueError(
             f"Unsupported acquisition '{self.acquisition}'. Use one of: "
-            "log_ei, log_pi, qlog_ei, qlog_nei, ucb, q_ucb, ts, mes, gibbon, pes, jes."
+            "log_ei, log_pi, qlog_ei, qlog_nei, ucb, mes, gibbon, pes."
         )
 
     def _init_acquisition(self, acq_class, **kwargs):
@@ -357,15 +355,41 @@ class BoTorchAcquisition(QueryStrategyBase):
         return acq_class(**filtered)
 
     def _optimize_discrete(self, torch, acq, candidate_set, batch_size: int):
+        # Scope extra threads to acquisition, preserving GP fitting settings.
+        with self._acquisition_threads(torch):
+            return self._optimize_discrete_impl(torch, acq, candidate_set, batch_size)
+
+    @contextmanager
+    def _acquisition_threads(self, torch):
+        if self.num_threads is None:
+            yield
+            return
+        allocated = os.environ.get("SLURM_CPUS_PER_TASK")
+        if allocated is not None and self.num_threads > int(allocated):
+            raise ValueError(
+                f"Acquisition requested {self.num_threads} threads, but Slurm "
+                f"allocated only {allocated} CPUs per task."
+            )
+        previous = torch.get_num_threads()
+        try:
+            torch.set_num_threads(self.num_threads)
+            yield
+        finally:
+            torch.set_num_threads(previous)
+
+    def _optimize_discrete_impl(self, torch, acq, candidate_set, batch_size: int):
         if self.discrete_optimizer == "greedy":
             return self._greedy_indices(acq, candidate_set, batch_size)
         from botorch.exceptions.errors import UnsupportedError
         from botorch.optim import optimize_acqf_discrete
 
         logger.info(
-            "%s: optimizing acquisition over %s candidates with the exact optimizer.",
+            "%s: optimizing acquisition over %s candidates with the exact optimizer "
+            "(evaluation chunk=%d, threads=%s).",
             self.name,
             self._candidate_count(candidate_set),
+            self.max_batch_size,
+            self.num_threads if self.num_threads is not None else "inherited",
         )
         try:
             candidates, _ = optimize_acqf_discrete(
@@ -373,6 +397,7 @@ class BoTorchAcquisition(QueryStrategyBase):
                 choices=candidate_set,
                 q=batch_size,
                 unique=True,
+                max_batch_size=self.max_batch_size,
             )
         except (AttributeError, UnsupportedError) as exc:
             if not self._is_x_pending_compat_error(exc):
@@ -409,40 +434,20 @@ class BoTorchAcquisition(QueryStrategyBase):
         top_k_local = np.argpartition(-rank_scores, batch_size - 1)[:batch_size]
         return [int(idx) for idx in top_k_local]
 
-    def _select_thompson_batch(self, torch, model, X_tensor, batch_size: int):
-        with torch.no_grad():
-            posterior = model.posterior(X_tensor)
-            samples = posterior.rsample(sample_shape=torch.Size([batch_size]))
-        values = samples.squeeze(-1)
-        if values.ndim > 2:
-            values = values.squeeze(-1)
-        if self.maximize:
-            picks = values.argmax(dim=1)
-        else:
-            picks = values.argmin(dim=1)
-        selected: list[int] = []
-        for idx in picks.tolist():
-            if idx not in selected:
-                selected.append(int(idx))
-        if len(selected) < batch_size:
-            mean_scores = values.mean(dim=0)
-            rank_scores = mean_scores if self.maximize else -mean_scores
-            for idx in torch.argsort(rank_scores, descending=True).tolist():
-                if idx not in selected:
-                    selected.append(int(idx))
-                    if len(selected) == batch_size:
-                        break
-        return selected[:batch_size]
-
     def _map_candidates_to_indices(self, torch, candidate_set, candidates):
         indices: list[int] = []
+        used = torch.zeros(
+            len(candidate_set), dtype=torch.bool, device=candidate_set.device
+        )
         for cand in candidates:
-            matches = (candidate_set == cand).all(dim=-1)
-            if matches.any():
-                indices.append(int(matches.nonzero(as_tuple=True)[0][0]))
-            else:
-                distances = torch.cdist(cand.unsqueeze(0), candidate_set)
-                indices.append(int(distances.argmin(dim=1)[0]))
+            matches = (candidate_set == cand).all(dim=-1) & ~used
+            if not matches.any():
+                raise ValueError(
+                    "Selected embedding has no unused exact candidate match."
+                )
+            index = int(matches.nonzero(as_tuple=True)[0][0])
+            indices.append(index)
+            used[index] = True
         return indices
 
     def _sample_optima_from_candidates(

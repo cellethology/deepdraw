@@ -1,99 +1,51 @@
-# Deepdraw: genetic circuit design with genomic foundation model
+# Deepdraw
 
 [![CI](https://github.com/cellethology/deepdraw/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/cellethology/deepdraw/actions/workflows/pre-commit.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/cellethology/deepdraw?logo=codecov)](https://codecov.io/gh/cellethology/deepdraw)
 
-Deepdraw is an active learning algorithm for genetic circuit design. It uses genomic foundation model (GFM) embeddings to make accurate predictions from very few experimental observations. At each iteration, Deepdraw integrates measurements from previous rounds with sequence-level circuit embeddings and proposes informative candidate designs in practical batches of 12, a 100-fold reduction relative to prior active learning approaches for circuit design.
+Deepdraw selects batches of genetic circuits to measure using sequence embeddings and accumulated experimental results. Its default search combines ProbCover initial selection, Gaussian-process prediction, and maximum-value entropy search (MES).
 
-This README is for users who want to apply Deepdraw to their own design pool. Retrospective benchmarking, Hydra sweeps, and Slurm array jobs are documented separately in [job_sub/README.md](job_sub/README.md).
+The active-learning loop runs on CPU. AlphaGenome embedding generation has a separate optional environment. For retrospective evaluation on fully measured datasets, see [benchmarks](benchmarks/README.md).
 
-## Quick Start
+## Install
 
-### 1. Install
-
-Prerequisites: Git, Python, and [uv](https://docs.astral.sh/uv/).
+Install Git and [uv](https://docs.astral.sh/uv/), then clone the repository and create the Python 3.10 environment:
 
 ```bash
 git clone https://github.com/cellethology/deepdraw.git
 cd deepdraw
-
 uv sync --python 3.10
 uv run deepdraw --help
 ```
 
-Plain `uv sync` installs the user-facing Deepdraw runtime. If you are developing the package and want test, lint, notebook, and plotting tools, include the dev group:
+Run the commands below from the repository root.
 
-```bash
-uv sync --python 3.10 --group dev
-```
+## Try the dummy example
 
-Optional retrospective analysis and cluster-job tooling can be added only when needed:
-
-```bash
-uv sync --extra analysis
-uv sync --extra cluster
-```
-
-If you are testing the current development branch before it is merged:
-
-```bash
-git checkout codex/deepdraw-user-workflow
-```
-
-### 2. Run The Dummy Example
-
-The fastest way to verify the workflow is to run the bundled dummy example. It includes a 60-sequence design pool, a matching embeddings file, and fake first-round measurements.
+The example includes 60 designs, synthetic embeddings, and measurements matching the default first batch. It requires no model download.
 
 ```bash
 uv run deepdraw init \
   --pool-csv examples/deepdraw_dummy/design_pool.csv \
   --embeddings examples/deepdraw_dummy/embeddings.npz \
   --sequence-column sequence \
-  --id-column variant_id
-```
+  --id-column variant_id \
+  --stopping-rule threshold \
+  --phenotype-threshold 19
 
-Deepdraw writes the first batch to:
-
-```text
-deepdraw_run/round_000_to_measure.csv
-```
-
-Now simulate receiving measurements from the first experimental round. In a real project, this should be a cumulative file, for example `measurements.csv`, that you keep appending to after each round. The dummy example provides its starter version as `measurements.csv`.
-
-```bash
 uv run deepdraw suggest \
   --run-dir deepdraw_run \
   --measurements examples/deepdraw_dummy/measurements.csv \
   --label-column Expression
 ```
 
-Deepdraw trains on all rows in the measurement file and writes the next batch to:
+These commands write `deepdraw_run/round_000_to_measure.csv` and `round_001_to_measure.csv`. See the [example README](examples/deepdraw_dummy/README.md) to simulate another measurement update and exercise stopping.
 
-```text
-deepdraw_run/round_001_to_measure.csv
-```
+## Use your own data
 
-The dummy example uses the same defaults as a real run: first batch size 12, later batch size 12, seed 0, ProbCover-euclidean initial selection, BoTorch GP prediction, and MES acquisition. See [Useful Flags](#useful-flags) for ways to change output location, batch size, model, acquisition strategy, and preprocessing.
+### 1. Prepare the design pool and embeddings
 
-## Use Deepdraw On Your Own Project
-
-Deepdraw expects you to start with an unlabeled design pool. You do not need any experimental measurements for the first round. The full workflow is:
-
-| Step | What you provide or run | What Deepdraw writes |
-| --- | --- | --- |
-| 1 | Input design pool: `designs.csv` | - |
-| 2 | Run `deepdraw embed-alphagenome` | `embeddings_alphagenome_raw.npz` |
-| 3 | Run `deepdraw pca` | `embeddings_alphagenome_kneedle.npz` |
-| 4 | Run `deepdraw init` | `round_000_to_measure.csv` |
-| 5 | Measure `round_000_to_measure.csv` designs and append labels | `measurements.csv` |
-| 6 | Run `deepdraw suggest` with `measurements.csv` | `round_001_to_measure.csv` |
-| 7 | Repeat measurement and `deepdraw suggest` rounds | `round_002_to_measure.csv`, ... |
-
-All workflow code needed for this path lives in this repository. Deepdraw provides the AlphaGenome embedding command, PCA command, and active-learning commands. The AlphaGenome runtime is kept in `envs/alphagenome` so its JAX/Hugging Face dependencies do not affect the normal Deepdraw environment. Model weights are still downloaded or read from your Hugging Face cache according to AlphaGenome's access terms.
-
-### 1. Prepare A Design Pool
-
-Create a CSV with one row per candidate design. Include a sequence column and, preferably, a stable design ID column.
+Create `designs.csv` with one row per candidate, a unique ID, and its DNA sequence:
 
 ```csv
 variant_id,sequence
@@ -102,205 +54,90 @@ variant_002,ATGCGTACGATAGCAA
 variant_003,ATGCGTACGCTAGCTA
 ```
 
-The stable ID column is recommended because it makes measurement files easier to merge across rounds.
+Provide an NPZ containing:
 
-### 2. Generate GFM Embeddings
+| Array | Contents |
+| --- | --- |
+| `embeddings` | A numeric array of shape `(number_of_designs, number_of_features)`. |
+| `ids` | Design IDs matching the CSV's ID column, one per embedding row. |
 
-Generate one embedding vector per design using your chosen genomic foundation model. Deepdraw includes an AlphaGenome embedding command and a PCA reduction command; you can also provide an NPZ generated by another model.
+`sample_ids` is also accepted as the ID-array name. Zero-based pool row indices are supported; an NPZ without IDs must follow the CSV's row order exactly. Keep the pool and embeddings at their original paths while continuing a run.
 
-Required NPZ structure:
+You can use embeddings from another model or generate them with the [AlphaGenome workflow below](#generate-alphagenome-embeddings).
 
-```python
-{
-    "embeddings": np.ndarray,  # shape: (num_designs, embedding_dim)
-    "ids": np.ndarray,         # variant IDs or row indices aligned to the pool CSV
-}
-```
-
-`sample_ids` is also accepted instead of `ids`. If you pass `--id-column variant_id`, the NPZ IDs should match that CSV column. If you do not pass an ID column, use row indices `0, 1, 2, ...`.
-
-AlphaGenome has a much heavier JAX/Hugging Face runtime than the normal Deepdraw loop, so keep it in the separate environment bundled under `envs/alphagenome`:
-
-```bash
-uv sync --project envs/alphagenome --python 3.11
-```
-
-#### Recommended Hardware For Embeddings
-
-Embedding is usually the most computationally expensive Deepdraw setup step. For production-size design pools, use a Linux machine with an NVIDIA CUDA GPU; the isolated AlphaGenome environment installs CUDA-enabled JAX on Linux. CPU inference is supported and useful for smoke tests or small pools, but it will be slower, so keep `--batch-size 1` unless you have already checked memory use on your machine.
-
-On Apple Silicon, this environment uses JAX CPU for AlphaGenome. The M-series GPU is visible through JAX Metal on some machines, but the Metal plugin is still experimental and is not the recommended Deepdraw path for AlphaGenome embedding. For GPU throughput, run the same Deepdraw command on Linux with a CUDA GPU.
-
-Before the first embedding run, accept access to the gated AlphaGenome model on Hugging Face and authenticate the AlphaGenome environment:
-
-```bash
-uv run --project envs/alphagenome hf auth login
-```
-
-You can also provide a token with `HF_TOKEN`. Without model access and authentication, Hugging Face will return `401 Unauthorized` when Deepdraw tries to download `google/alphagenome-all-folds`.
-
-Generate AlphaGenome embeddings from the same design pool you will pass to `deepdraw init`:
-
-```bash
-uv run --project envs/alphagenome deepdraw embed-alphagenome \
-  --pool-csv designs.csv \
-  --sequence-column sequence \
-  --id-column variant_id \
-  --output embeddings_alphagenome_raw.npz \
-  --resolution 128 \
-  --pooling mean \
-  --batch-size 1
-```
-
-Then run kneedle PCA in the regular Deepdraw environment:
-
-```bash
-uv run deepdraw pca \
-  --input embeddings_alphagenome_raw.npz \
-  --output embeddings_alphagenome_kneedle.npz \
-  --selection-method kneedle
-```
-
-The PCA output, `embeddings_alphagenome_kneedle.npz`, is the embeddings file you pass to `deepdraw init` in the next step.
-
-### 3. Select The First Batch
-
-Run `deepdraw init` to choose the first experimental batch from embeddings only.
+### 2. Select the first batch
 
 ```bash
 uv run deepdraw init \
   --pool-csv designs.csv \
-  --embeddings embeddings_alphagenome_kneedle.npz \
+  --embeddings embeddings.npz \
   --sequence-column sequence \
   --id-column variant_id \
-  --output-dir runs/my_deepdraw_run \
-  --starting-batch-size 12 \
-  --batch-size 12
+  --output-dir runs/my_project \
+  --stopping-rule threshold \
+  --phenotype-threshold 10
 ```
 
-Outputs:
+Choose a phenotype cutoff appropriate for your experiment. Deepdraw maximizes the supplied score.
+
+The run directory contains:
 
 ```text
-runs/my_deepdraw_run/
+runs/my_project/
 ├── deepdraw_state.json
-├── latest_recommendations.csv
 ├── round_000_to_measure.csv
+├── latest_recommendations.csv
 └── selection_history.csv
 ```
 
-Send `round_000_to_measure.csv` to the wet lab.
-Recommendation CSVs keep the original design-pool columns; `selection_history.csv`
-adds only `deepdraw_round` so you can see which batch each design came from.
+Measure the designs in `round_000_to_measure.csv`. Recommendation files retain the original pool columns; `selection_history.csv` also records `deepdraw_round`.
 
-If you generated embeddings with a different model, replace `embeddings_alphagenome_kneedle.npz` with your own Deepdraw-compatible NPZ.
+### 3. Add measurements and request the next batch
 
-### 4. Add Measurements
-
-After the first experiment, create one cumulative measurements CSV, such as `measurements.csv`. The easiest approach is to copy `round_000_to_measure.csv` and add a measured label column.
+Create a cumulative `measurements.csv` containing design IDs and one measured score per design:
 
 ```csv
-variant_id,sequence,Expression
-variant_001,ATGCGTACGTTAGCGA,1.42
-variant_005,ATGCGTACGAAAGCGA,3.87
-variant_009,ATGCGTACGCAAGTTA,5.11
+variant_id,Expression
+variant_001,1.42
+variant_002,3.87
+variant_003,5.11
 ```
 
-Keep the stable ID column, such as `variant_id`, in every measurement update. Deepdraw uses that column to map measurements back to the original design pool.
-
-You can include extra measured designs that were not recommended by Deepdraw, as long as they are present in the original design pool. `deepdraw suggest` trains on every measured design in `measurements.csv`, then excludes all measured designs from the next recommendation batch.
-
-Keep updating this same file over time. After you measure `round_001_to_measure.csv`, append those new rows to `measurements.csv`; after `round_002_to_measure.csv`, append those rows too. Each `deepdraw suggest` call expects the measurements file to contain every previously recommended design with a measured label.
-
-### 5. Select The Next Batch
-
-Run `deepdraw suggest` with the cumulative measurement table:
+Use the IDs actually recommended for your run. Include every previously recommended design; additional measured designs from the pool can also be included.
 
 ```bash
 uv run deepdraw suggest \
-  --run-dir runs/my_deepdraw_run \
+  --run-dir runs/my_project \
   --measurements measurements.csv \
   --label-column Expression
 ```
 
-This writes:
+Deepdraw trains on the measured designs and writes `round_001_to_measure.csv`. Measure that batch, append its scores to the same cumulative file, and repeat `suggest` for later rounds. Measured designs are excluded from new batches.
 
-```text
-runs/my_deepdraw_run/round_001_to_measure.csv
-```
+When a stopping rule fires, the command reports the reason and writes no new batch. Use a new `--output-dir` when starting another run.
 
-Measure that batch, append the new labels to the same `measurements.csv`, and run `deepdraw suggest` again:
+## Search settings and stopping
 
-```bash
-uv run deepdraw suggest \
-  --run-dir runs/my_deepdraw_run \
-  --measurements measurements.csv \
-  --label-column Expression
-```
+The CLI selects the recommended search settings automatically. Algorithm flags are optional overrides:
 
-The next output will be:
+| Flag | Default | Alternatives |
+| --- | --- | --- |
+| `--starting-batch-size`, `--batch-size` | `12` | Any positive integer; capped by available designs. |
+| `--seed` | `0` | An integer from `0` to `4294967295`. |
+| `--initial-selection-strategy` | `probcover` | `core_set`, `density_core_set`, `kmeans`, `probcover_cosine`, `typiclust`, `random`. |
+| `--predictor` | `gp` | `linear_gp`, `gradboost_regressor`, `rf_ensemble`. |
+| `--query-strategy` | `mes` | `topk`, `predstdhybrid`, `ucb`, `pes`, `gibbon`, `log_pi`, `log_ei`, `qlog_nei`, `qlog_ei`, `random`. |
+| `--feature-transforms` | `standardize` | `none`. |
+| `--target-transforms` | `log_standardize` | `none`. |
+| `--stopping-rule` | `none` | `threshold`, `ei`. |
 
-```text
-runs/my_deepdraw_run/round_002_to_measure.csv
-```
+`probcover` uses Euclidean distance; `probcover_cosine` uses cosine distance.
 
-Continue the same measure, append, and `deepdraw suggest` loop for each later round.
+Gradient boosting supports `topk`, `predstdhybrid`, and `random`. The random-forest ensemble also supports `ucb`, `log_pi`, `log_ei`, `qlog_nei`, and `qlog_ei`. The entropy queries `mes`, `pes`, and `gibbon` require `gp` or `linear_gp`.
 
-## Recommended Defaults
+The default target transform applies `log(1 + score)` followed by standardization. Use `--target-transforms none` for scores that cannot be log-transformed.
 
-For a first real campaign, use the defaults unless you have a reason to compare strategies:
-
-```bash
-uv run deepdraw init \
-  --pool-csv designs.csv \
-  --embeddings embeddings_alphagenome_kneedle.npz \
-  --sequence-column sequence \
-  --id-column variant_id \
-  --output-dir runs/my_deepdraw_run \
-  --starting-batch-size 12 \
-  --batch-size 12
-```
-
-The default workflow uses:
-
-- initial selection: `probcover_euclidean`
-- predictor: `gp`
-- query strategy: `mes`
-- feature transforms: `standardize`
-- target transforms: `log_standardize`
-
-For very small smoke tests, you can use faster settings: `random`, `ridge_regressor`, `topk`, and no transforms.
-
-## Useful Flags
-
-The examples above use production defaults. You can override pieces of the workflow when you need a different experimental setup or a faster local smoke test.
-
-Change the number of designs per round:
-
-```bash
-uv run deepdraw init \
-  --pool-csv designs.csv \
-  --embeddings embeddings_alphagenome_kneedle.npz \
-  --sequence-column sequence \
-  --id-column variant_id \
-  --output-dir runs/my_deepdraw_run \
-  --starting-batch-size 24 \
-  --batch-size 12
-```
-
-Choose where outputs are written:
-
-```bash
-uv run deepdraw init \
-  --pool-csv designs.csv \
-  --embeddings embeddings_alphagenome_kneedle.npz \
-  --sequence-column sequence \
-  --id-column variant_id \
-  --output-dir runs/my_deepdraw_run
-```
-
-If the run directory already exists, `deepdraw init` stops rather than overwriting `deepdraw_state.json`. Add `--force` only when you intentionally want to overwrite an existing run directory.
-
-Use a faster local smoke-test configuration by swapping in lighter model and transform settings:
+Fixed-threshold stopping, used above, stops when a measured score meets or exceeds `--phenotype-threshold`. For an adaptive EI example using the bundled data:
 
 ```bash
 uv run deepdraw init \
@@ -308,85 +145,78 @@ uv run deepdraw init \
   --embeddings examples/deepdraw_dummy/embeddings.npz \
   --sequence-column sequence \
   --id-column variant_id \
-  --output-dir /tmp/deepdraw_dummy_fast_run \
-  --starting-batch-size 4 \
-  --batch-size 3 \
-  --seed 11 \
-  --initial-selection-strategy random \
-  --predictor ridge_regressor \
-  --query-strategy topk \
-  --feature-transforms none \
-  --target-transforms none \
-  --force
+  --output-dir runs/dummy_ei \
+  --stopping-rule ei \
+  --epsilon 0.01
+
+uv run deepdraw suggest \
+  --run-dir runs/dummy_ei \
+  --measurements examples/deepdraw_dummy/measurements.csv \
+  --label-column Expression
 ```
 
-Common override flags:
+After each measured batch, `suggest` stops if maximum expected improvement over the unmeasured pool is at most epsilon. With the default target transform, epsilon is in `log(1 + score)` units before standardization. The value above is for the dummy example; choose it for your objective. EI stopping reuses a compatible fitted GP or fits a separate GP when another predictor is selected.
 
-- `--starting-batch-size`: number of designs in the first batch.
-- `--batch-size`: number of designs in each later batch.
-- `--seed`: random seed for reproducible initial selection and stochastic model components.
-- `--initial-selection-strategy`: first-round strategy, such as `probcover_euclidean`, `core_set`, or `random`.
-- `--predictor`: model used after measurements arrive, such as `gp` or `ridge_regressor`. Existing `botorch_*` names are also accepted.
-- `--query-strategy`: acquisition strategy for later rounds, such as `mes`, `qlog_nei`, or `topk`. Existing `botorch_*` names are also accepted.
-- `--feature-transforms`: feature preprocessing config, such as `standardize` or `none`.
-- `--target-transforms`: label preprocessing config, such as `log_standardize` or `none`.
-- `--log-level`: progress output verbosity; default is `INFO`, use `WARNING` for quieter runs.
+Omitting the stopping options disables threshold and EI stopping. All runs finish when no unmeasured designs remain. Use `--log-level WARNING` for quieter output.
 
-## CLI Reference
+## Generate AlphaGenome embeddings
 
-Create a run and select the first batch:
+Skip this section if you already have embeddings. The isolated environment uses Python 3.11:
+
+```bash
+uv sync --project envs/alphagenome --python 3.11
+```
+
+Accept access to `google/alphagenome-all-folds` on Hugging Face, then authenticate:
+
+```bash
+uv run --project envs/alphagenome hf auth login
+```
+
+An `HF_TOKEN` environment variable is also supported. The embedding environment supports CUDA GPUs on Linux and CPU execution; use CPU on macOS. Start with a batch size of 1.
+
+```bash
+uv run --project envs/alphagenome deepdraw embed-alphagenome \
+  --pool-csv designs.csv \
+  --sequence-column sequence \
+  --id-column variant_id \
+  --output embeddings_alphagenome_raw.npz \
+  --model-version all_folds \
+  --resolution 1 \
+  --species human \
+  --pooling mean \
+  --batch-size 1
+
+uv run deepdraw pca \
+  --input embeddings_alphagenome_raw.npz \
+  --output embeddings.npz \
+  --selection-method kneedle
+```
+
+Use the resulting `embeddings.npz` with `deepdraw init`. PCA runs in the main Deepdraw environment.
+
+## Repository layout and development
+
+| Directory | Contents |
+| --- | --- |
+| [deepdraw/](deepdraw/) | CLI, experimental workflow, embedding tools, and shared presets. |
+| [core/](core/README.md) | Models, selection strategies, training, and stopping rules. |
+| [examples/deepdraw_dummy/](examples/deepdraw_dummy/README.md) | Runnable example with synthetic data. |
+| [benchmarks/](benchmarks/README.md) | Retrospective evaluation, noise simulation, and Hydra/Slurm tools. |
+| [envs/alphagenome/](envs/alphagenome/) | Optional AlphaGenome environment. |
+| [test/](test/) | Unit and workflow tests. |
+
+Install development dependencies and run the tests:
+
+```bash
+uv run --group dev pytest
+```
+
+Command-specific help:
 
 ```bash
 uv run deepdraw init --help
-```
-
-Train on measured labels and select the next batch:
-
-```bash
 uv run deepdraw suggest --help
-```
-
-Generate AlphaGenome embeddings:
-
-```bash
+uv run deepdraw pca --help
 uv run --project envs/alphagenome deepdraw embed-alphagenome --help
 ```
-
-Reduce embeddings with PCA/kneedle:
-
-```bash
-uv run deepdraw pca --help
-```
-
-Required/common arguments:
-
-- `--pool-csv`: CSV containing candidate designs.
-- `--embeddings`: NPZ containing GFM embeddings aligned to the design pool.
-- `--sequence-column`: sequence column in the design pool CSV.
-- `--id-column`: optional stable design ID column in the pool CSV.
-- `--output-dir`: run directory where Deepdraw writes state and recommendations. Defaults to `deepdraw_run`.
-- `--measurements`: cumulative CSV containing measured labels for all previous Deepdraw recommendations.
-- `--label-column`: measured target column, such as `Expression` or `Fold Change`.
-
-## Repository Layout
-
-```text
-├── deepdraw/                  # User-facing Deepdraw CLI and workflow
-├── envs/alphagenome/          # Optional isolated AlphaGenome embedding runtime
-├── examples/deepdraw_dummy/   # Tiny runnable example
-├── core/                      # Active learning models, strategies, and trainers
-├── job_sub/                   # Retrospective benchmark and Slurm/Hydra tooling
-├── test/                      # Unit and workflow tests
-└── utils/                     # Supporting utilities
-```
-
-## Testing
-
-```bash
-uv run pytest test/test_deepdraw_workflow.py
-uv run pytest
-```
-
-## Citation
-
-Citation information will be added with the manuscript/release.

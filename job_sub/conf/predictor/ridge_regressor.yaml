@@ -1,3 +1,0 @@
-# conf/model/ridge_regressor.yaml
-_target_: sklearn.linear_model.Ridge
-random_state: ${al_settings.seed}

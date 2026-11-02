@@ -1,2 +1,0 @@
-# conf/model/linear_regressor.yaml
-_target_: sklearn.linear_model.LinearRegression

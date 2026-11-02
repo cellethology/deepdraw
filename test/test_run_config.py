@@ -1,4 +1,4 @@
-"""Unit tests for job_sub.run_config orchestration helpers."""
+"""Unit tests for benchmarks.run_config orchestration helpers."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ import pytest
 
 @pytest.fixture
 def load_run_config(monkeypatch):
-    """Load job_sub.run_config with patched dataset loading side effects."""
+    """Load benchmarks.run_config with patched dataset loading side effects."""
 
     def _load(datasets: list[SimpleNamespace] | None = None):
-        import job_sub.utils.config_utils as config_utils
+        import benchmarks.utils.config_utils as config_utils
 
         fake_datasets = datasets or [
             SimpleNamespace(
@@ -38,12 +38,12 @@ def load_run_config(monkeypatch):
             lambda *args, **kwargs: None,
         )
 
-        fake_entry = types.ModuleType("run_active_learning")
+        fake_entry = types.ModuleType("benchmarks.run_active_learning")
         fake_entry.run_one_experiment = lambda cfg: None
-        monkeypatch.setitem(sys.modules, "run_active_learning", fake_entry)
+        monkeypatch.setitem(sys.modules, "benchmarks.run_active_learning", fake_entry)
 
-        monkeypatch.delitem(sys.modules, "job_sub.run_config", raising=False)
-        return importlib.import_module("job_sub.run_config")
+        monkeypatch.delitem(sys.modules, "benchmarks.run_config", raising=False)
+        return importlib.import_module("benchmarks.run_config")
 
     return _load
 
@@ -158,7 +158,20 @@ def test_run_single_array_sweep_keeps_user_dataset_index(load_run_config, monkey
     assert sum(1 for part in cmd if part.startswith("dataset_index=")) == 1
 
 
-def test_main_runs_per_dataset_mode(load_run_config, monkeypatch) -> None:
+@pytest.mark.parametrize(
+    "launcher, configured_launcher, expected_wait",
+    [
+        (None, "basic", False),
+        (None, "submitit_slurm", True),
+        (None, "submitit_local", False),
+        ("submitit_slurm", "submitit_local", True),
+        ("submitit_local", "submitit_slurm", False),
+        ("basic", "submitit_slurm", False),
+    ],
+)
+def test_main_runs_per_dataset_mode(
+    load_run_config, monkeypatch, tmp_path, launcher, configured_launcher, expected_wait
+) -> None:
     datasets = [
         SimpleNamespace(
             name="ds0",
@@ -174,7 +187,15 @@ def test_main_runs_per_dataset_mode(load_run_config, monkeypatch) -> None:
         ),
     ]
     module = load_run_config(datasets)
-    monkeypatch.setattr(module, "collect_user_overrides", lambda argv: ["foo=bar"])
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"defaults:\n  - override hydra/launcher: {configured_launcher}\n"
+    )
+    monkeypatch.setattr(module, "_CONFIG_PATH", config_path)
+    overrides = ["foo=bar"]
+    if launcher is not None:
+        overrides.append(f"hydra/launcher={launcher}")
+    monkeypatch.setattr(module, "collect_user_overrides", lambda argv: overrides)
     monkeypatch.setattr(
         module, "_single_array_across_datasets_enabled", lambda overrides: False
     )
@@ -196,8 +217,8 @@ def test_main_runs_per_dataset_mode(load_run_config, monkeypatch) -> None:
     cmd1, env1, name1 = calls[1]
     assert name0 == "ds0"
     assert name1 == "ds1"
-    assert cmd0[:3] == [sys.executable, str(module._SCRIPT_PATH), "-m"]
-    assert cmd1[:3] == [sys.executable, str(module._SCRIPT_PATH), "-m"]
+    assert cmd0[:4] == [sys.executable, "-m", "benchmarks.run_config", "--multirun"]
+    assert cmd1[:4] == [sys.executable, "-m", "benchmarks.run_config", "--multirun"]
     assert env0[module._HYDRA_CHILD_ENV] == "1"
     assert env0[module._DATASET_INDEX_ENV] == "0"
     assert env0[module._DATASET_ENV] == "ds0"
@@ -205,7 +226,7 @@ def test_main_runs_per_dataset_mode(load_run_config, monkeypatch) -> None:
     assert env1[module._DATASET_INDEX_ENV] == "1"
     assert env1[module._DATASET_ENV] == "ds1"
     assert module._SUBSET_ENV not in env1
-    assert waits == ["ds0", "ds1"]
+    assert waits == (["ds0", "ds1"] if expected_wait else [])
 
 
 def test_main_runs_single_array_mode(load_run_config, monkeypatch) -> None:

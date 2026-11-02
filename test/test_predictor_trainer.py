@@ -6,9 +6,7 @@ Tests model training, prediction, and normalization functionality.
 
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
-from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
 from core.predictor_trainer import PredictorTrainer
@@ -26,38 +24,6 @@ class VarianceAwareRegressor(BaseEstimator, RegressorMixin):
 
 class TestPredictorTrainer:
     """Test cases for PredictorTrainer class."""
-
-    def test_train_basic(self):
-        """Training produces a fitted estimator stored on the trainer."""
-        model = LinearRegression()
-        trainer = PredictorTrainer(model)
-
-        X_train = np.array([[1, 2], [3, 4], [5, 6]])
-        y_train = np.array([1, 2, 3])
-        trainer.train(X_train, y_train)
-
-        trained_model = trainer.get_model()
-        assert trained_model is not None
-        preds = trainer.predict(X_train)
-        assert preds.shape == (3,)
-
-    def test_train_with_different_models(self):
-        """Test training with different model types."""
-        models = [
-            LinearRegression(),
-            RandomForestRegressor(n_estimators=10, random_state=42),
-            KNeighborsRegressor(n_neighbors=2),
-        ]
-
-        X_train = np.random.randn(10, 5)
-        y_train = np.random.randn(10)
-        for model in models:
-            trainer = PredictorTrainer(model)
-            trainer.train(X_train, y_train)
-            trained_model = trainer.get_model()
-            assert trained_model is not None
-            preds = trainer.predict(X_train)
-            assert preds.shape == (10,)
 
     def test_predict(self):
         """Test making predictions."""

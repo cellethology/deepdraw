@@ -2,6 +2,8 @@
 Integration tests for ActiveLearningExperiment without a test split.
 """
 
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +12,7 @@ import pytest
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
+from benchmarks.noise_simulation import RetrospectiveExperiment
 from core.experiment import ActiveLearningExperiment
 from core.initial_selection_strategies import RandomInitialSelection
 from core.query_strategies import Random, TopPredictions
@@ -143,12 +146,13 @@ class TestActiveLearningExperiment:
         experiment.save_results(output_path)
 
         assert output_path.exists()
+        assert "n_confirmed_top" not in pd.read_csv(output_path).columns
         assert not (Path(tmp_path) / "simulated_measurements.csv").exists()
         assert not (Path(tmp_path) / "training_observations.csv").exists()
 
     def test_replicate_measurements_are_recorded_and_used_for_training(self, tmp_path):
         emb_path, csv_path = self.create_dataset(tmp_path, n_samples=12)
-        experiment = ActiveLearningExperiment(
+        experiment = RetrospectiveExperiment(
             embeddings_path=emb_path,
             metadata_path=csv_path,
             initial_selection_strategy=RandomInitialSelection(
@@ -179,6 +183,136 @@ class TestActiveLearningExperiment:
         assert len(training) == 4
         assert "n_confirmed_top" in pd.read_csv(output_path).columns
 
+    def test_confirmed_top_early_stop_waits_for_minimum_and_saves_outputs(
+        self, tmp_path
+    ):
+        emb_path, csv_path = self.create_dataset(tmp_path, n_samples=30)
+        fixed_initial = type(
+            "FixedInitial",
+            (),
+            {
+                "name": "FIXED",
+                "select": lambda self, dataset: [29, 0],
+            },
+        )()
+        experiment = RetrospectiveExperiment(
+            embeddings_path=emb_path,
+            metadata_path=csv_path,
+            initial_selection_strategy=fixed_initial,
+            query_strategy=TopPredictions(),
+            predictor=LinearRegression(),
+            starting_batch_size=2,
+            batch_size=2,
+            feature_transforms=[("scaler", StandardScaler())],
+            target_transforms=[("log", FunctionTransformer(np.log1p, np.expm1))],
+            label_key="Expression",
+            measurement_simulation={
+                "enabled": True,
+                "replicates_per_construct": 2,
+                "noise_sigma_log10_expression": 0.0,
+                "confirmation_z": 1.96,
+            },
+            confirmed_top_stopping={
+                "enabled": True,
+                "confirmation_z": 0.0,
+                "min_total_rounds": 3,
+            },
+        )
+
+        rounds = experiment.run_experiment(max_rounds=9)
+
+        assert len(rounds) == 3
+        assert len(experiment.train_indices) == 6
+        assert experiment.failure_info is None
+        assert experiment.early_stop_info == {
+            "reason": "confirmed_top",
+            "round": 3,
+            "first_confirmation_round": 1,
+            "confirmation_z": 0.0,
+            "min_total_rounds": 3,
+            "n_confirmed_top_at_stop": 1,
+        }
+
+        output_path = Path(tmp_path) / "early_stop_results.csv"
+        experiment.save_results(output_path)
+        results = pd.read_csv(output_path)
+        measurements = pd.read_csv(Path(tmp_path) / "simulated_measurements.csv")
+        training = pd.read_csv(Path(tmp_path) / "training_observations.csv")
+
+        assert len(results) == 3
+        assert len(measurements) == 12
+        assert measurements["round"].max() == 2
+        assert len(training) == 6
+
+    def test_confirmed_top_early_stop_requires_measurement_simulation(self, tmp_path):
+        emb_path, csv_path = self.create_dataset(tmp_path, n_samples=10)
+
+        with pytest.raises(ValueError, match="measurement_simulation.enabled"):
+            RetrospectiveExperiment(
+                embeddings_path=emb_path,
+                metadata_path=csv_path,
+                initial_selection_strategy=RandomInitialSelection(
+                    seed=0, starting_batch_size=2
+                ),
+                query_strategy=Random(seed=0),
+                predictor=LinearRegression(),
+                starting_batch_size=2,
+                batch_size=2,
+                label_key="Expression",
+                confirmed_top_stopping={"enabled": True},
+            )
+
+    def test_confirmed_top_after_minimum_stops_on_confirmation_round(self, tmp_path):
+        emb_path, csv_path = self.create_dataset(tmp_path, n_samples=20)
+        metadata = pd.read_csv(csv_path)
+        metadata["Expression"] = 1.0
+        metadata.loc[11, "Expression"] = 100.0
+        metadata.to_csv(csv_path, index=False)
+
+        fixed_initial = type(
+            "FixedInitial",
+            (),
+            {"name": "FIXED", "select": lambda self, dataset: [0]},
+        )()
+        ordered_query = type(
+            "OrderedQuery",
+            (),
+            {
+                "name": "ORDERED",
+                "requires_model": False,
+                "select": lambda self, experiment: experiment.unlabeled_indices[
+                    : experiment.batch_size
+                ],
+            },
+        )()
+        experiment = RetrospectiveExperiment(
+            embeddings_path=emb_path,
+            metadata_path=csv_path,
+            initial_selection_strategy=fixed_initial,
+            query_strategy=ordered_query,
+            predictor=LinearRegression(),
+            starting_batch_size=1,
+            batch_size=1,
+            label_key="Expression",
+            measurement_simulation={
+                "enabled": True,
+                "replicates_per_construct": 1,
+                "noise_sigma_log10_expression": 0.0,
+            },
+            confirmed_top_stopping={
+                "enabled": True,
+                "confirmation_z": 0.0,
+                "min_total_rounds": 10,
+            },
+        )
+
+        rounds = experiment.run_experiment(max_rounds=19)
+
+        assert len(rounds) == 12
+        assert experiment.early_stop_info is not None
+        assert experiment.early_stop_info["first_confirmation_round"] == 12
+        assert experiment.early_stop_info["round"] == 12
+
     def test_zero_noise_expression_simulation_matches_disabled_behavior(self, tmp_path):
         rng = np.random.default_rng(17)
         n_samples = 30
@@ -202,7 +336,12 @@ class TestActiveLearningExperiment:
         ).to_csv(metadata_path, index=False)
 
         def build_experiment(measurement_simulation=None):
-            return ActiveLearningExperiment(
+            experiment_class = ActiveLearningExperiment
+            optional_settings = {}
+            if measurement_simulation is not None:
+                experiment_class = RetrospectiveExperiment
+                optional_settings["measurement_simulation"] = measurement_simulation
+            return experiment_class(
                 embeddings_path=str(embedding_path),
                 metadata_path=str(metadata_path),
                 initial_selection_strategy=RandomInitialSelection(
@@ -216,7 +355,7 @@ class TestActiveLearningExperiment:
                 feature_transforms=[("scaler", StandardScaler())],
                 target_transforms=[("log", FunctionTransformer(np.log1p, np.expm1))],
                 label_key=label_key,
-                measurement_simulation=measurement_simulation,
+                **optional_settings,
             )
 
         baseline = build_experiment()
@@ -238,9 +377,13 @@ class TestActiveLearningExperiment:
 
         assert baseline.train_indices == zero_noise.train_indices
         assert baseline.unlabeled_indices == zero_noise.unlabeled_indices
+        baseline_rounds = pd.DataFrame(baseline.round_tracker.rounds)
+        simulated_rounds = pd.DataFrame(zero_noise.round_tracker.rounds)
+        assert set(simulated_rounds.columns) - set(baseline_rounds.columns) == {
+            "n_confirmed_top"
+        }
         pd.testing.assert_frame_equal(
-            pd.DataFrame(baseline.round_tracker.rounds),
-            pd.DataFrame(zero_noise.round_tracker.rounds),
+            baseline_rounds, simulated_rounds[baseline_rounds.columns]
         )
         np.testing.assert_allclose(
             baseline.get_training_targets(baseline.train_indices),
@@ -300,26 +443,6 @@ class TestActiveLearningExperiment:
         )
         experiment.run_experiment(max_rounds=5)
         assert len(experiment.train_indices) == len(experiment.dataset.sample_ids)
-
-    def test_backward_compatibility_properties(self, tmp_path):
-        """Compatibility properties stay available even without a test split."""
-        emb_path, csv_path = self.create_dataset(tmp_path, n_samples=12)
-        experiment = self._build_experiment(
-            embeddings_path=emb_path,
-            metadata_path=csv_path,
-            query_strategy=Random(seed=1),
-            starting_batch_size=4,
-            batch_size=4,
-            initial_selection_strategy=RandomInitialSelection(
-                seed=1, starting_batch_size=4
-            ),
-        )
-
-        assert isinstance(experiment.dataset.sample_ids, np.ndarray)
-        assert isinstance(experiment.dataset.labels, np.ndarray)
-        assert isinstance(experiment.train_indices, list)
-        assert isinstance(experiment.unlabeled_indices, list)
-        assert isinstance(experiment.round_tracker.rounds, list)
 
     def test_training_failure_stops_early_and_preserves_partial_results(
         self, tmp_path, monkeypatch
@@ -384,3 +507,19 @@ class TestActiveLearningExperiment:
         experiment.save_results(output_path)
         saved = pd.read_csv(output_path)
         assert len(saved) == 1
+
+
+def test_core_import_does_not_load_retrospective_tools():
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import core.experiment; "
+            "assert not any(name == 'benchmarks' or name.startswith('benchmarks.') "
+            "for name in sys.modules)",
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
