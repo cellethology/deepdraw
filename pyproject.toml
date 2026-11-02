@@ -25,10 +25,14 @@ classifiers = [
 
 dependencies = [
     "botorch>=0.16.1",
+    "gpytorch>=1.14.2",
     "hydra-core>=1.3.2",
     "numpy>=1.21.0",
+    "omegaconf>=2.3.0",
     "pandas>=1.3.0",
-    "scikit-learn>=1.6.0",
+    "scikit-learn>=1.6.1,<1.8",
+    "scipy>=1.6.0",
+    "torch>=2.0.1",
 ]
 
 [project.optional-dependencies]
@@ -41,9 +45,6 @@ cluster = [
     "hydra-submitit-launcher>=1.2.0",
     "submitit>=1.5.3",
 ]
-kmedoids = [
-    "kmedoids>=0.5.1",
-]
 
 [project.urls]
 Homepage = "https://github.com/cellethology/deepdraw"
@@ -52,13 +53,19 @@ Issues = "https://github.com/cellethology/deepdraw/issues"
 
 [project.scripts]
 deepdraw = "deepdraw.cli:main"
-run-active-learning = "run_experiments:main"
+
+[tool.hatch.build]
+exclude = [
+    "**/.codex/**",
+    "**/.claude/**",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
+    "/reproducibility/**",
+    "/benchmarks/datasets/**",
+]
 
 [tool.hatch.build.targets.wheel]
-packages = ["core", "deepdraw", "job_sub", "utils"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"job_sub/conf" = "job_sub/conf"
+packages = ["core", "deepdraw"]
 
 [tool.uv]
 default-groups = []
@@ -106,8 +113,8 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--cov=core",
-    "--cov=job_sub",
-    "--cov=utils",
+    "--cov=deepdraw",
+    "--cov=benchmarks",
     "--cov-report=term-missing",
 ]
 markers = [
@@ -133,8 +140,8 @@ dev = [
 [tool.coverage.run]
 source = [
     "core",
-    "job_sub",
-    "utils",
+    "deepdraw",
+    "benchmarks",
 ]
 branch = true
 

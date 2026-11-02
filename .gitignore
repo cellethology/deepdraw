@@ -103,7 +103,6 @@ site/
 setting.json
 
 # dir
-.claude/
 data_new_deprecated/
 
 # logs
@@ -114,21 +113,23 @@ logs_experiments
 log_test/*
 logs_test/*
 slurm_logs/
-# job_sub/
 
 
 # hidden directories
 .*
 
+# Local assistant settings and instructions
+.codex/
+.claude/
+AGENTS.md
+CLAUDE.md
+
 # local data
 **/test_local.yaml
 **/local_166k.yaml
-job_sub/datasets/*_local
-job_sub/datasets/*_local.*
-job_sub/datasets/**/*_local
-job_sub/datasets/**/*_local.*
+/benchmarks/datasets/
 
 # Local-only analysis / figure-generation scripts (notebooks, sensitivity-analysis
 # helpers, etc.). Anything dropped under this folder stays out of git.
-job_sub/utils/analysis/
-utils/
+benchmarks/utils/analysis/
+/utils/

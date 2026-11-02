@@ -16,6 +16,7 @@ SUMMARY_METRIC_RULES = {
     "auc_true": ("max_accumulate", "normalized_true"),
     "avg_top": ("top_mean", "n_top"),
     "rounds_to_top": ("rounds_to_top", "n_top"),
+    "best_true_score_found": ("max_overall", "best_true_score_found"),
     "overall_true": ("max_overall", "normalized_true"),
     "max_train_spearman": ("max_overall", "train_spearman"),
     "max_extreme_value_auc": ("max_overall", "extreme_value_auc"),
@@ -37,6 +38,7 @@ class RoundTracker:
         self.sample_ids = sample_ids
         self.rounds: list[dict[str, Any]] = []
         self.round_num = 0
+        self.summary_metric_rules = dict(SUMMARY_METRIC_RULES)
 
     def track_round(
         self,
@@ -57,11 +59,26 @@ class RoundTracker:
         )
         unlabeled_pool_size = len(self.sample_ids) - train_size - len(selected_indices)
         selected_ids = [int(self.sample_ids[idx]) for idx in selected_indices]
+        round_best_true = float(metrics.get("best_true", float("nan")))
+        previous_best_true = (
+            float(self.rounds[-1]["best_true_score_found"])
+            if self.rounds
+            else float("nan")
+        )
+        finite_best_values = [
+            value
+            for value in (previous_best_true, round_best_true)
+            if np.isfinite(value)
+        ]
+        best_true_score_found = (
+            max(finite_best_values) if finite_best_values else float("nan")
+        )
         self.rounds.append(
             {
                 "round": self.round_num,
                 "train_size": train_size,
                 **metrics,
+                "best_true_score_found": best_true_score_found,
                 "selected_sample_ids": selected_ids,
                 "unlabeled_pool_size": unlabeled_pool_size,
             }
@@ -104,7 +121,7 @@ class RoundTracker:
 
         summary_values: dict[str, float] = {}
 
-        for metric_name, (rule, metric_column) in SUMMARY_METRIC_RULES.items():
+        for metric_name, (rule, metric_column) in self.summary_metric_rules.items():
             if metric_column not in rounds[0]:
                 raise ValueError(f"Metric column {metric_name} not found in rounds")
 

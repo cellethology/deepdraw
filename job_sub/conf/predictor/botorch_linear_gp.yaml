@@ -1,7 +1,0 @@
-# BoTorch GP regressor with a linear kernel
-_target_: core.botorch_models.BoTorchGPRegressor
-device: auto
-dtype: float64
-ard: false
-kernel: linear
-noise_constraint: 1e-4

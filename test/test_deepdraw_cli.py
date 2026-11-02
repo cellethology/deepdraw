@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -115,3 +117,66 @@ def test_cli_embed_alphagenome_delegates_pool_csv(monkeypatch, tmp_path, capsys)
     assert calls["id_column"] == "variant_id"
     assert calls["resolution"] == 1
     assert calls["device"] == "cpu"
+
+
+@pytest.mark.parametrize(
+    "arguments, expected",
+    [
+        (
+            ["--stopping-rule", "ei", "--epsilon", "0.0003"],
+            {"stopping_rule": "ei", "epsilon": 0.0003, "phenotype_threshold": None},
+        ),
+        (
+            ["--stopping-rule", "threshold", "--phenotype-threshold", "12.5"],
+            {
+                "stopping_rule": "threshold",
+                "epsilon": None,
+                "phenotype_threshold": 12.5,
+            },
+        ),
+    ],
+)
+def test_cli_init_passes_stopping_parameters(
+    monkeypatch, tmp_path, capsys, arguments, expected
+):
+    calls = {}
+
+    def fake_initialize(**kwargs):
+        calls.update(kwargs)
+        return SimpleNamespace(output_dir=str(tmp_path), output_path=tmp_path)
+
+    monkeypatch.setattr(cli, "initialize_run", fake_initialize)
+    cli.main(
+        ["init", "--pool-csv", "pool.csv", "--embeddings", "embeddings.npz", *arguments]
+    )
+
+    assert {key: calls[key] for key in expected} == expected
+    assert "Initialized Deepdraw run" in capsys.readouterr().out
+
+
+def test_cli_requires_epsilon_for_ei_stopping(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(
+            [
+                "init",
+                "--pool-csv",
+                "missing.csv",
+                "--embeddings",
+                "missing.npz",
+                "--stopping-rule",
+                "ei",
+            ]
+        )
+    assert exc.value.code == 1
+    assert "epsilon" in capsys.readouterr().err
+
+
+def test_cli_reports_stop_without_recommendation_path(monkeypatch, capsys):
+    state = SimpleNamespace(stopped=True, stopping_result={"reason": "ei"})
+    monkeypatch.setattr(cli, "suggest_next_batch", lambda **kwargs: state)
+
+    cli.main(["suggest", "--run-dir", "run", "--measurements", "measurements.csv"])
+
+    output = capsys.readouterr().out
+    assert output == "Stopped Deepdraw run: ei\n"
+    assert "to_measure" not in output

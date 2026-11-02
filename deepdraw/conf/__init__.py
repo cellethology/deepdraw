@@ -1,0 +1,1 @@
+"""Shared Deepdraw algorithm presets."""

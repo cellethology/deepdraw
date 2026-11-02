@@ -22,6 +22,7 @@ from sklearn.pipeline import Pipeline
 
 from core.data_loader import Dataset
 from core.predictor_trainer import PredictorTrainer
+from core.stopping import StoppingConfig, ei_stopping_trainer, stopping_decision
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,7 @@ DEEPDRAW_ID_COLUMN = "deepdraw_id"
 DEEPDRAW_POOL_INDEX_COLUMN = "deepdraw_pool_index"
 DEEPDRAW_ROUND_COLUMN = "deepdraw_round"
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-_CONFIG_ROOT = _REPO_ROOT / "job_sub" / "conf"
+_CONFIG_ROOT = Path(__file__).resolve().parent / "conf"
 _SEQUENCE_COLUMN_CANDIDATES = (
     "sequence",
     "Sequence",
@@ -64,7 +64,15 @@ class DeepdrawState:
     target_transforms: str
     label_column: str | None = None
     rounds: list[dict[str, Any]] = field(default_factory=list)
-    version: int = 1
+    version: int = 2
+    stopping_rule: str = "none"
+    epsilon: float | None = None
+    phenotype_threshold: float | None = None
+    stopping_result: dict[str, Any] | None = None
+
+    @property
+    def stopped(self) -> bool:
+        return bool(self.stopping_result and self.stopping_result["stopped"])
 
     @property
     def output_path(self) -> Path:
@@ -87,13 +95,31 @@ def initialize_run(
     seed: int = 0,
     predictor_name: str = "gp",
     query_strategy_name: str = "mes",
-    initial_selection_strategy_name: str = "probcover_euclidean",
+    initial_selection_strategy_name: str = "probcover",
     feature_transforms_name: str = "standardize",
     target_transforms_name: str = "log_standardize",
+    stopping_rule: str = "none",
+    epsilon: float | None = None,
+    phenotype_threshold: float | None = None,
     force: bool = False,
 ) -> DeepdrawState:
     """Create a Deepdraw run and write the initial batch to measure."""
 
+    StoppingConfig(
+        rule=stopping_rule,
+        epsilon=epsilon,
+        phenotype_threshold=phenotype_threshold,
+    )
+    _validate_run_settings(
+        seed=seed,
+        starting_batch_size=starting_batch_size,
+        batch_size=batch_size,
+        predictor=predictor_name,
+        query_strategy=query_strategy_name,
+        initial_selection_strategy=initial_selection_strategy_name,
+        feature_transforms=feature_transforms_name,
+        target_transforms=target_transforms_name,
+    )
     output_path = Path(output_dir).expanduser().resolve()
     logger.info("Deepdraw init: creating run in %s", output_path)
     state_path = output_path / STATE_FILENAME
@@ -111,6 +137,7 @@ def initialize_run(
         embeddings_path=embeddings_path,
         pool_ids=pool_ids,
     )
+    starting_batch_size = min(starting_batch_size, len(pool_ids))
 
     output_path.mkdir(parents=True, exist_ok=True)
     al_settings = _build_al_settings(
@@ -135,7 +162,19 @@ def initialize_run(
         len(pool_ids),
         starting_batch_size,
     )
-    selected_indices = initial_selection.select(dataset)
+    selected_indices = (
+        list(range(len(pool_ids)))
+        if starting_batch_size == len(pool_ids)
+        else initial_selection.select(dataset)
+    )
+    if (
+        len(selected_indices) != starting_batch_size
+        or len(set(selected_indices)) != starting_batch_size
+        or not set(selected_indices).issubset(range(len(pool_ids)))
+    ):
+        raise ValueError(
+            "Initial selection must return distinct designs from the pool."
+        )
     logger.info("Selected %d designs for round 0.", len(selected_indices))
 
     state = DeepdrawState(
@@ -152,6 +191,9 @@ def initialize_run(
         initial_selection_strategy=initial_selection_strategy_name,
         feature_transforms=feature_transforms_name,
         target_transforms=target_transforms_name,
+        stopping_rule=stopping_rule,
+        epsilon=epsilon,
+        phenotype_threshold=phenotype_threshold,
     )
     _append_round(
         state=state,
@@ -183,6 +225,24 @@ def suggest_next_batch(
 
     logger.info("Deepdraw suggest: loading run from %s", Path(run_dir).resolve())
     state = load_state(run_dir)
+    if state.stopped:
+        logger.info("Deepdraw run is stopped: %s", state.stopping_result["reason"])
+        return state
+    _validate_run_settings(
+        seed=state.seed,
+        starting_batch_size=state.starting_batch_size,
+        batch_size=state.batch_size,
+        predictor=state.predictor,
+        query_strategy=state.query_strategy,
+        initial_selection_strategy=state.initial_selection_strategy,
+        feature_transforms=state.feature_transforms,
+        target_transforms=state.target_transforms,
+    )
+    stopping = StoppingConfig(
+        rule=state.stopping_rule,
+        epsilon=state.epsilon,
+        phenotype_threshold=state.phenotype_threshold,
+    )
     if label_column is None:
         label_column = state.label_column
     if label_column is None:
@@ -222,12 +282,23 @@ def suggest_next_batch(
     labels = np.full(len(pool_ids), np.nan)
     train_indices = _training_indices_for_state(state, measured_labels)
     labels[train_indices] = [measured_labels[idx] for idx in train_indices]
-    unmeasured_count = len(pool_ids) - len(train_indices)
+    available = np.setdiff1d(np.arange(len(pool_ids)), train_indices)
+    unmeasured_count = len(available)
     logger.info(
         "Prepared training data: %d measured designs, %d unmeasured candidates.",
         len(train_indices),
         unmeasured_count,
     )
+    if stopping.rule == "threshold" or unmeasured_count == 0:
+        decision = stopping_decision(
+            stopping,
+            trainer=None,
+            pool_features=embeddings[available],
+            observed_scores=labels[train_indices],
+        )
+        state.stopping_result = decision
+        if decision["stopped"]:
+            return _finish_stopped_run(state, decision, label_column)
 
     dataset = Dataset(
         sample_ids=pool_ids.tolist(),
@@ -263,7 +334,9 @@ def suggest_next_batch(
         feature_transform=None,
         target_transform=target_transforms,
     )
-    requires_model = getattr(query_strategy, "requires_model", True)
+    requires_model = (
+        getattr(query_strategy, "requires_model", True) or stopping.rule == "ei"
+    )
     if requires_model:
         logger.info(
             "Training predictor '%s' on %d measured designs.",
@@ -283,6 +356,25 @@ def suggest_next_batch(
             "Skipping predictor training because query strategy '%s' does not require a model.",
             _display_component_name("query_strategy", state.query_strategy),
         )
+
+    if stopping.rule == "ei":
+        stopping_trainer = ei_stopping_trainer(
+            trainer,
+            train_features=dataset.embeddings[train_indices, :],
+            observed_scores=labels[train_indices],
+        )
+        decision = stopping_decision(
+            stopping,
+            trainer=stopping_trainer,
+            pool_features=dataset.embeddings[available],
+            observed_scores=labels[train_indices],
+        )
+        if stopping_trainer is not trainer:
+            decision["model_source"] = "separate_gp"
+            decision["predictor"] = type(stopping_trainer.base_predictor).__name__
+        state.stopping_result = decision
+        if decision["stopped"]:
+            return _finish_stopped_run(state, decision, label_column)
 
     experiment_view = _ProductionExperimentView(
         dataset=dataset,
@@ -319,6 +411,17 @@ def suggest_next_batch(
         round_num=round_num,
     )
     _write_selection_history(state=state, pool_df=pool_df)
+    return state
+
+
+def _finish_stopped_run(
+    state: DeepdrawState, decision: dict[str, Any], label_column: str
+) -> DeepdrawState:
+    state.label_column = label_column
+    state.stopping_result = {**decision, "round": len(state.rounds)}
+    save_state(state)
+    (state.output_path / LATEST_RECOMMENDATIONS_FILENAME).unlink(missing_ok=True)
+    logger.info("Deepdraw stopped: %s", decision["reason"])
     return state
 
 
@@ -379,6 +482,8 @@ def _load_pool(
 
     logger.info("Loading design pool from %s", pool_path)
     pool_df = pd.read_csv(pool_path)
+    if pool_df.empty:
+        raise ValueError("The design pool must contain at least one design.")
     resolved_sequence_column = _resolve_sequence_column(pool_df, sequence_column)
     if id_column is not None and id_column not in pool_df.columns:
         raise ValueError(f"id_column '{id_column}' was not found in {pool_path}.")
@@ -432,6 +537,15 @@ def _load_aligned_embeddings(
     embeddings = np.asarray(data["embeddings"])
     if embeddings.ndim != 2:
         raise ValueError(f"Embeddings must be 2D; got shape {embeddings.shape}.")
+    if embeddings.shape[1] == 0:
+        raise ValueError("Embeddings must contain at least one feature.")
+    if not (
+        np.issubdtype(embeddings.dtype, np.number)
+        or np.issubdtype(embeddings.dtype, np.bool_)
+    ) or np.iscomplexobj(embeddings):
+        raise ValueError("Embeddings must contain real numeric values.")
+    if not np.isfinite(embeddings).all():
+        raise ValueError("Embeddings must contain only finite values.")
 
     embedding_ids = _extract_embedding_ids(data)
     if embedding_ids is None:
@@ -453,17 +567,6 @@ def _load_aligned_embeddings(
             f"embedding rows ({embeddings.shape[0]})."
         )
 
-    row_indices = _as_complete_row_indices(embedding_ids, len(pool_ids))
-    if row_indices is not None:
-        aligned = np.empty((len(pool_ids), embeddings.shape[1]), dtype=embeddings.dtype)
-        aligned[row_indices] = embeddings
-        logger.info(
-            "Loaded embeddings for %d designs (%d features; aligned by row indices).",
-            aligned.shape[0],
-            aligned.shape[1],
-        )
-        return aligned
-
     embedding_id_strings = np.asarray(
         [_stringify_id(value) for value in embedding_ids], dtype=object
     )
@@ -475,6 +578,18 @@ def _load_aligned_embeddings(
         sample_id for sample_id in pool_ids if sample_id not in id_to_embedding_row
     ]
     if missing:
+        row_indices = _as_complete_row_indices(embedding_ids, len(pool_ids))
+        if row_indices is not None:
+            aligned = np.empty(
+                (len(pool_ids), embeddings.shape[1]), dtype=embeddings.dtype
+            )
+            aligned[row_indices] = embeddings
+            logger.info(
+                "Loaded embeddings for %d designs (%d features; aligned by row indices).",
+                aligned.shape[0],
+                aligned.shape[1],
+            )
+            return aligned
         preview = ", ".join(map(str, missing[:10]))
         raise ValueError(
             f"Embeddings are missing {len(missing)} pool ids. First missing ids: {preview}"
@@ -499,8 +614,13 @@ def _extract_embedding_ids(data: Any) -> np.ndarray | None:
 
 def _as_complete_row_indices(ids: np.ndarray, pool_size: int) -> np.ndarray | None:
     try:
+        values = np.asarray(ids, dtype=float)
+        if not np.isfinite(values).all() or values.ndim != 1:
+            return None
+        if not np.equal(values, np.floor(values)).all():
+            return None
         numeric = np.asarray(ids, dtype=int)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     if numeric.shape[0] != pool_size:
         return None
@@ -540,6 +660,15 @@ def _load_measurements(
         if pd.isna(raw_label):
             continue
         label = float(raw_label)
+        if not np.isfinite(label):
+            raise ValueError(
+                f"Measurement scores must be finite (row {row_number + 2})."
+            )
+        if state.target_transforms.lower() == "log_standardize" and label <= -1:
+            raise ValueError(
+                "log_standardize requires measurement scores greater than -1. "
+                "Use --target-transforms none when initializing a run for other scores."
+            )
         pool_index = _measurement_row_to_pool_index(
             row=row,
             row_number=int(row_number) + 2,
@@ -822,8 +951,64 @@ def _resolve_named_config_path(*, kind: str, name: str) -> Path:
     for path in candidates:
         if path.exists():
             return path
-    checked = ", ".join(str(path) for path in candidates)
-    raise FileNotFoundError(f"Unknown {kind} config '{name}' (checked {checked}).")
+    choices = sorted(
+        _display_component_name(kind, path.stem)
+        for path in (_CONFIG_ROOT / kind).glob("*.yaml")
+    )
+    raise FileNotFoundError(
+        f"Unknown {kind} '{name}'. Choose from: {', '.join(choices)}."
+    )
+
+
+def _validate_run_settings(
+    *,
+    seed: int,
+    starting_batch_size: int,
+    batch_size: int,
+    predictor: str,
+    query_strategy: str,
+    initial_selection_strategy: str,
+    feature_transforms: str,
+    target_transforms: str,
+) -> None:
+    for name, value in (
+        ("starting_batch_size", starting_batch_size),
+        ("batch_size", batch_size),
+    ):
+        if not isinstance(value, int | np.integer) or value < 1:
+            raise ValueError(f"{name} must be a positive integer.")
+    if not isinstance(seed, int | np.integer) or not 0 <= seed < 2**32:
+        raise ValueError("seed must be an integer between 0 and 4294967295.")
+    for kind, name in (
+        ("predictor", predictor),
+        ("query_strategy", query_strategy),
+        ("initial_selection_strategy", initial_selection_strategy),
+        ("transforms", feature_transforms),
+        ("transforms", target_transforms),
+    ):
+        _resolve_named_config_path(kind=kind, name=name)
+
+    predictor = _canonical_component_name("predictor", predictor)
+    query = _canonical_query_strategy_name(query_strategy)
+    compatible = {
+        "gradboost_regressor": {"topk", "predstdhybrid", "random"},
+        "rf_ensemble": {
+            "topk",
+            "predstdhybrid",
+            "random",
+            "ucb",
+            "log_pi",
+            "log_ei",
+            "qlog_nei",
+            "qlog_ei",
+        },
+    }
+    if predictor in compatible and query not in compatible[predictor]:
+        choices = ", ".join(sorted(compatible[predictor]))
+        raise ValueError(
+            f"Predictor '{predictor}' does not support query strategy '{query}'. "
+            f"Choose from: {choices}, or use gp or linear_gp."
+        )
 
 
 def _canonical_component_name(kind: str, name: str) -> str:
@@ -879,6 +1064,6 @@ def _stringify_id(value: Any) -> str:
         return value.decode()
     if isinstance(value, np.integer):
         return str(int(value))
-    if isinstance(value, np.floating) and float(value).is_integer():
+    if isinstance(value, float | np.floating) and float(value).is_integer():
         return str(int(value))
     return str(value)

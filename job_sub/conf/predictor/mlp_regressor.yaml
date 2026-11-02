@@ -1,6 +1,0 @@
-# conf/model/mlp_regressor.yaml
-_target_: sklearn.neural_network.MLPRegressor
-hidden_layer_sizes:
-  - 50
-max_iter: 2000
-random_state: ${al_settings.seed}

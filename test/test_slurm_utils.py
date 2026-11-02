@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 
-from job_sub.utils import slurm_utils
+from benchmarks.utils import slurm_utils
 
 
 def test_wait_for_slurm_jobs_respects_disable_env(monkeypatch) -> None:

@@ -1,0 +1,94 @@
+defaults:
+  - predictor: botorch_gp
+  - query_strategy: botorch_qlog_nei
+  - initial_selection_strategy: probcover
+  - transforms@feature_transforms: standardize
+  - transforms@target_transforms: log_standardize
+  - _self_
+  - seed_mode: array
+  - override hydra/launcher: basic
+
+# data paths
+datasets_file: null
+single_array_across_datasets: true
+dataset_index: ${env:AL_DATASET_INDEX,0}
+dataset_name: ${dataset_field:${datasets_file},${dataset_index},name}
+metadata_path: ${dataset_field:${datasets_file},${dataset_index},metadata_path}
+embedding_dir: ${dataset_field:${datasets_file},${dataset_index},embedding_dir}
+embedding_model: 166k_alphagenome_1bp_embeddingkneedle
+embedding_path: ${embedding_dir}/${embedding_model}.npz
+subset_ids_path: ${dataset_field:${datasets_file},${dataset_index},subset_ids_path,null}
+# base directory for Hydra run outputs (can be overridden in config/CLI)
+results_root_dir: results
+
+# number of random seeds to run for each active learning experiment
+num_seeds_per_job: 30
+seed_start: 0
+parallelize_seeds: true
+
+# active learning settings
+al_settings:
+  batch_size: 12
+  starting_batch_size: 12
+  max_rounds: 19 # not including the initial selection
+  top_fraction: 0.01
+  stopping_rule: none
+  epsilon: null
+  phenotype_threshold: null
+  feature_transforms: ${feature_transforms}
+  target_transforms: ${target_transforms}
+  output_dir: ${hydra:runtime.output_dir}
+  query_strategy: ${query_strategy}
+  label_key: "Fold Change (Induced/Basal)"
+  predictor: ${predictor}
+  initial_selection_strategy: ${initial_selection_strategy}
+  seed: 0
+
+# Simulated measurement settings for retrospective noise/replicate experiments.
+# Keep disabled for normal active-learning use.
+measurement_simulation:
+  enabled: false
+  # Expression-based modes average each state across replicates before scoring.
+  # Relative perturbations are anchored to each historical score as the true mean.
+  replicates_per_construct: 1
+  noise_sigma_log10_expression: 0.0
+  expression_columns:
+    - "Basal Exp (GFP, au)"
+    - "Induced Exp (GFP, au)"
+  # label | induced_over_basal | and_score | or_score
+  score_mode: label
+  basal_column: null
+  induced_column: null
+  # Optional explicit mappings for four-state AND/OR simulations. Otherwise,
+  # expression_columns must be ordered basal, input A, input B, dual input.
+  single_input_a_column: null
+  single_input_b_column: null
+  dual_input_column: null
+  # With 2+ replicates, train_Yvar is estimated from pooled within-construct
+  # log10 expression variance. AND/OR propagation uses the active max/min state.
+  confirmation_z: 1.96
+  train_yvar_floor: 1e-12
+
+# Optional cost-saving stop for retrospective simulations. A run stops only
+# after a true top circuit is confirmed from simulated observations and the
+# requested minimum number of total rounds (including the initial batch).
+confirmed_top_stopping:
+  enabled: false
+  confirmation_z: 0.0
+  min_total_rounds: 10
+
+# hydra settings
+hydra:
+  searchpath:
+    - pkg://deepdraw.conf
+  run:
+    dir: ${results_root_dir}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ${results_root_dir}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${dataset_name}/${override_values:${hydra.job.override_dirname},dataset_index|single_array_across_datasets|al_settings.seed,default}
+  sweeper: # multirun mode sweeps over these parameters
+    params:
+      initial_selection_strategy: probcover
+      embedding_model: 166k_alphagenome_1bp_embeddingkneedle
+      query_strategy: botorch_mes
+      predictor: botorch_gp

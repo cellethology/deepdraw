@@ -24,11 +24,13 @@ class Dataset:
         sample_ids: Stable identifiers aligned with embeddings/labels
         labels: Array of target label values (e.g., expression)
         embeddings: Pre-computed embeddings (required)
+        metadata: Optional metadata rows aligned to sample_ids/labels.
     """
 
     sample_ids: list[str]
     labels: np.ndarray
     embeddings: np.ndarray
+    metadata: pd.DataFrame | None = None
 
     def __post_init__(self) -> None:
         """Validate dataset after initialization."""
@@ -82,12 +84,13 @@ class DataLoader:
 
         embeddings, sample_ids = self._load_embeddings()
         embeddings, sample_ids = self._apply_subset_if_needed(embeddings, sample_ids)
-        labels = self._load_metadata(sample_ids)
+        labels, metadata = self._load_metadata(sample_ids)
 
         self.dataset = Dataset(
             sample_ids=sample_ids,
             labels=labels,
             embeddings=embeddings,
+            metadata=metadata,
         )
 
         logger.info(
@@ -110,11 +113,11 @@ class DataLoader:
         )  # sample_ids is row index of csv, so we need to convert it to integer
         return embeddings, sample_ids
 
-    def _load_metadata(self, sample_ids: np.ndarray) -> np.ndarray:
+    def _load_metadata(self, sample_ids: np.ndarray) -> tuple[np.ndarray, pd.DataFrame]:
         df = pd.read_csv(self.metadata_path)
-        df = df.iloc[sample_ids]
-        labels = df[self.label_key].to_numpy()
-        return labels
+        aligned = df.iloc[sample_ids].reset_index(drop=True)
+        labels = aligned[self.label_key].to_numpy()
+        return labels, aligned
 
     def _apply_subset_if_needed(
         self, embeddings: np.ndarray, sample_ids: np.ndarray

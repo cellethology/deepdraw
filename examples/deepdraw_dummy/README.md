@@ -1,45 +1,54 @@
-# Deepdraw Dummy Workflow
+# Deepdraw dummy example
 
-This directory contains a tiny 60-design pool and matching embeddings for checking
-the user-facing Deepdraw loop without any real experimental data.
+This example provides 60 designs, synthetic embeddings, and measurements for the default first batch. Follow the [installation steps](../../README.md#install), then run these commands from the repository root. No AlphaGenome download is needed.
 
-Run the first batch selection:
+## Select and measure two batches
 
 ```bash
 uv run deepdraw init \
   --pool-csv examples/deepdraw_dummy/design_pool.csv \
   --embeddings examples/deepdraw_dummy/embeddings.npz \
   --sequence-column sequence \
-  --id-column variant_id
-```
+  --id-column variant_id \
+  --stopping-rule threshold \
+  --phenotype-threshold 19
 
-Then simulate the first measurement update. In a real project, this file should be cumulative: keep one `measurements.csv` and append newly measured rows after each round.
-
-```bash
 uv run deepdraw suggest \
   --run-dir deepdraw_run \
   --measurements examples/deepdraw_dummy/measurements.csv \
   --label-column Expression
 ```
 
-The command above uses the same defaults as a real run, and `measurements.csv` matches its first-round recommendations. After measuring `deepdraw_run/round_001_to_measure.csv`, append those rows to the same measurements file and run `deepdraw suggest` again to get round 2.
+The first command writes `deepdraw_run/round_000_to_measure.csv`. The supplied measurements match that batch; the second command trains the default GP and writes `round_001_to_measure.csv` using MES.
 
-For a faster smoke test, use a separate output directory and add:
+To simulate measuring the second batch, create a cumulative measurement file with the same synthetic score formula used for the bundled data:
 
 ```bash
---output-dir /tmp/deepdraw_dummy_fast_run \
---starting-batch-size 4 \
---batch-size 3 \
---seed 11 \
---initial-selection-strategy random \
---predictor ridge_regressor \
---query-strategy topk \
---feature-transforms none \
---target-transforms none
+uv run python - <<'PYTHON'
+import pandas as pd
+
+previous = pd.read_csv("examples/deepdraw_dummy/measurements.csv")
+batch = pd.read_csv("deepdraw_run/round_001_to_measure.csv")
+batch["Expression"] = [
+    round(1 + 0.31 * int(identifier.rsplit("_", 1)[1]), 2)
+    for identifier in batch["variant_id"]
+]
+pd.concat([previous, batch[previous.columns]], ignore_index=True).to_csv(
+    "deepdraw_run/measurements.csv", index=False
+)
+PYTHON
+
+uv run deepdraw suggest \
+  --run-dir deepdraw_run \
+  --measurements deepdraw_run/measurements.csv \
+  --label-column Expression
 ```
 
-The bundled `measurements.csv` is for the default command above.
-Regenerate the files with:
+The run stops when a measured score reaches 19. For real experiments, keep one cumulative measurements file and append newly measured designs before each `suggest` call.
+
+The bundled measurements correspond to the default initial strategy, batch size, and seed. If you change those settings, supply measurements matching the newly selected batch.
+
+## Regenerate the inputs
 
 ```bash
 uv run python examples/deepdraw_dummy/make_dummy_inputs.py

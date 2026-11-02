@@ -21,6 +21,7 @@ from core.metrics_calculator import MetricsCalculator
 from core.predictor_trainer import PredictorTrainer
 from core.query_strategies import QueryStrategyBase
 from core.round_tracker import RoundTracker
+from core.stopping import StoppingConfig, ei_stopping_trainer, stopping_decision
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,9 @@ class ActiveLearningExperiment:
         starting_batch_size: int | None = None,
         label_key: str | None = None,
         subset_ids_path: str | None = None,
+        stopping_rule: str = "none",
+        epsilon: float | None = None,
+        phenotype_threshold: float | None = None,
     ) -> None:
         """
         Initialize the active learning experiment.
@@ -63,6 +67,9 @@ class ActiveLearningExperiment:
             label_key: Column name in the metadata CSV containing target values
             starting_batch_size: Number of samples to sample initially. If None, will be set to batch_size.
             subset_ids_path: Optional path to a newline-delimited list of sample IDs to keep.
+            stopping_rule: none, ei, or threshold.
+            epsilon: Minimum expected improvement before external standardization.
+            phenotype_threshold: Measured phenotype sufficient to stop.
         """
         # Store configuration
         if label_key is None:
@@ -79,6 +86,14 @@ class ActiveLearningExperiment:
         self.feature_transforms = feature_transforms
         self.target_transforms = target_transforms
         self.failure_info: dict[str, Any] | None = None
+        self.early_stop_info: dict[str, Any] | None = None
+        self.stopping_config = StoppingConfig(
+            rule=stopping_rule,
+            epsilon=epsilon,
+            phenotype_threshold=phenotype_threshold,
+        )
+        self.stopping_result: dict[str, Any] | None = None
+        self.stopping_trainer: PredictorTrainer | None = None
         if starting_batch_size is None:
             self.starting_batch_size = self.batch_size
         else:
@@ -207,6 +222,20 @@ class ActiveLearningExperiment:
         self.round_tracker.track_round(selected_indices=indices, metrics=round_metrics)
         return round_metrics
 
+    def get_training_targets(self, indices: list[int] | np.ndarray) -> np.ndarray:
+        """Return observed labels used to train the predictor."""
+        return self.dataset.labels[np.asarray(indices, dtype=int)]
+
+    def get_training_y_var(self, indices: list[int] | np.ndarray) -> np.ndarray | None:
+        """Return observation variances for predictor training, when estimable."""
+        return None
+
+    def _observe_batch(self, indices: list[int], round_num: int) -> None:
+        """Hook for supplying observations before batch evaluation."""
+
+    def _before_training(self, round_num: int, y_var_train: np.ndarray | None) -> None:
+        """Hook for recording observations before predictor training."""
+
     def _get_round_predictions(
         self, requires_model: bool
     ) -> tuple[np.ndarray, np.ndarray | None, np.ndarray, np.ndarray | None]:
@@ -235,6 +264,80 @@ class ActiveLearningExperiment:
             "error_message": str(exc),
         }
 
+    def _should_stop_after_batch(
+        self,
+        *,
+        top_p: float,
+        has_remaining_rounds: bool,
+    ) -> bool:
+        """Hook for an optional experiment-specific stopping check."""
+        return False
+
+    def _train_predictor(self, round_num: int) -> bool:
+        X_train = self.dataset.embeddings[self.train_indices, :]
+        y_train = self.get_training_targets(self.train_indices)
+        y_var_train = self.get_training_y_var(self.train_indices)
+        self._before_training(round_num, y_var_train)
+        logger.info("Starting model training for round %d", round_num)
+        try:
+            self.trainer.train(
+                X_train=X_train,
+                y_train=y_train,
+                y_var_train=y_var_train,
+            )
+        except Exception as exc:
+            logger.exception("Training failed at round %d", round_num)
+            self._set_failure_info("train", round_num, exc)
+            logger.warning(
+                "Stopping early after training failure at round %d. "
+                "Returning partial results with %d completed rounds.",
+                round_num,
+                len(self.round_tracker.rounds),
+            )
+            return False
+        return True
+
+    def _should_stop_from_rule(self) -> bool:
+        if self.stopping_config.rule == "none":
+            return False
+        pool = self.unlabeled_indices
+        total_rounds = len(self.round_tracker.rounds)
+        trainer = self.trainer
+        if self.stopping_config.rule == "ei" and pool:
+            if not self._train_predictor(total_rounds):
+                return True
+            try:
+                trainer = ei_stopping_trainer(
+                    self.trainer,
+                    train_features=self.dataset.embeddings[self.train_indices, :],
+                    observed_scores=self.get_training_targets(self.train_indices),
+                    observation_variances=self.get_training_y_var(self.train_indices),
+                )
+            except Exception as exc:
+                logger.exception(
+                    "Stopping GP training failed at round %d", total_rounds
+                )
+                self._set_failure_info("stopping_train", total_rounds, exc)
+                return True
+            self.stopping_trainer = trainer
+        result = stopping_decision(
+            self.stopping_config,
+            trainer=trainer,
+            pool_features=self.dataset.embeddings[pool, :],
+            observed_scores=self.get_training_targets(self.train_indices),
+        )
+        if trainer is not self.trainer:
+            result["model_source"] = "separate_gp"
+            result["predictor"] = type(trainer.base_predictor).__name__
+        self.stopping_result = result
+        if result["stopped"]:
+            if result["reason"] != "pool_exhausted":
+                self.early_stop_info = {**result, "round": total_rounds}
+            logger.info(
+                "Search stopped after round %d: %s", total_rounds, result["reason"]
+            )
+        return bool(result["stopped"])
+
     def run_experiment(
         self, max_rounds: int = 30, top_p: float = 0.01
     ) -> list[dict[str, Any]]:
@@ -252,10 +355,23 @@ class ActiveLearningExperiment:
         requires_model = getattr(self.query_strategy, "requires_model", True)
 
         logger.info("--- Initial selection ---")
+        self._observe_batch(self.train_indices, round_num=0)
         self._evaluate_and_track(
             indices=self.train_indices,
             top_p=top_p,
         )
+
+        if self._should_stop_after_batch(
+            top_p=top_p,
+            has_remaining_rounds=(
+                max_rounds > 0
+                and len(self.train_indices) < len(self.dataset.sample_ids)
+            ),
+        ):
+            return self.round_tracker.rounds
+
+        if self._should_stop_from_rule():
+            return self.round_tracker.rounds
 
         if not self.unlabeled_indices:
             logger.info(
@@ -283,22 +399,10 @@ class ActiveLearningExperiment:
             )
 
             if requires_model:
-                X_train = self.dataset.embeddings[self.train_indices, :]
-                y_train = self.dataset.labels[self.train_indices]
-                logger.info("Starting model training for round %d", round_num + 1)
-                try:
-                    self.trainer.train(X_train=X_train, y_train=y_train)
-                except Exception as exc:
-                    logger.exception("Training failed at round %d", round_num + 1)
-                    self._set_failure_info("train", round_num + 1, exc)
-                    logger.warning(
-                        "Stopping early after training failure at round %d. "
-                        "Returning partial results with %d completed rounds.",
-                        round_num + 1,
-                        len(self.round_tracker.rounds),
-                    )
-                    break
-            elif round_num == 0:
+                if self.stopping_config.rule != "ei":
+                    if not self._train_predictor(round_num + 1):
+                        break
+            elif round_num == 0 and self.stopping_config.rule != "ei":
                 logger.info(
                     "Skipping model training because query strategy does not require a predictor."
                 )
@@ -334,6 +438,7 @@ class ActiveLearningExperiment:
                 )
                 break
 
+            self._observe_batch(next_batch, round_num=round_num + 1)
             self._evaluate_and_track(
                 indices=next_batch,
                 top_p=top_p,
@@ -344,6 +449,18 @@ class ActiveLearningExperiment:
             )
 
             self.train_indices.extend(next_batch)
+
+            if self._should_stop_after_batch(
+                top_p=top_p,
+                has_remaining_rounds=(
+                    round_num + 1 < max_rounds
+                    and len(self.train_indices) < len(self.dataset.sample_ids)
+                ),
+            ):
+                break
+
+            if self._should_stop_from_rule():
+                break
 
             if len(self.train_indices) == len(self.dataset.sample_ids):
                 logger.info(
@@ -361,6 +478,7 @@ class ActiveLearningExperiment:
         Args:
             output_path: Path to save results
         """
+        output_path = Path(output_path)
         self.round_tracker.save_to_csv(output_path=output_path)
 
     @property

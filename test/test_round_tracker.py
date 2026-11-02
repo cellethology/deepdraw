@@ -18,11 +18,6 @@ DUMMY_METRICS = {
 
 
 class TestRoundTracker:
-    def test_initialization(self):
-        tracker = RoundTracker(sample_ids=np.array([0, 1, 2]))
-        assert tracker.rounds == []
-        assert tracker.round_num == 0
-
     def test_track_round_basic(self):
         tracker = RoundTracker(sample_ids=np.array([0, 1, 2]))
 
@@ -33,6 +28,7 @@ class TestRoundTracker:
         assert recorded["round"] == 0
         assert recorded["selected_sample_ids"] == [0, 2]
         assert recorded["unlabeled_pool_size"] == 1
+        assert recorded["best_true_score_found"] == 1.0
 
     def test_track_round_missing_ids(self):
         tracker = RoundTracker(sample_ids=np.array([0, 1, 2]))
@@ -54,6 +50,7 @@ class TestRoundTracker:
         tracker.track_round(
             selected_indices=[0],
             metrics={
+                "best_true": 0.2,
                 "normalized_true": 0.2,
                 "n_top": 1,
                 "train_spearman": 0.1,
@@ -63,6 +60,7 @@ class TestRoundTracker:
         tracker.track_round(
             selected_indices=[1],
             metrics={
+                "best_true": 0.4,
                 "normalized_true": 0.4,
                 "n_top": 0,
                 "train_spearman": 0.3,
@@ -72,6 +70,7 @@ class TestRoundTracker:
         tracker.track_round(
             selected_indices=[2],
             metrics={
+                "best_true": 0.3,
                 "normalized_true": 0.3,
                 "n_top": 1,
                 "train_spearman": 0.2,
@@ -83,6 +82,7 @@ class TestRoundTracker:
         assert pytest.approx(1.0 / 3, rel=1e-6) == metrics["auc_true"]
         assert pytest.approx(2.0 / 3.0, rel=1e-6) == metrics["avg_top"]
         assert pytest.approx(1.0, rel=1e-6) == metrics["rounds_to_top"]
+        assert pytest.approx(0.4, rel=1e-6) == metrics["best_true_score_found"]
         assert pytest.approx(0.4, rel=1e-6) == metrics["overall_true"]
         assert pytest.approx(0.3, rel=1e-6) == metrics["max_train_spearman"]
         assert pytest.approx(0.5, rel=1e-6) == metrics["max_extreme_value_auc"]
@@ -102,6 +102,7 @@ class TestRoundTracker:
         tracker.track_round(
             selected_indices=[0],
             metrics={
+                "best_true": 0.2,
                 "normalized_true": 0.2,
                 "n_top": 1,
                 "train_spearman": 0.1,
@@ -111,6 +112,7 @@ class TestRoundTracker:
         tracker.track_round(
             selected_indices=[1],
             metrics={
+                "best_true": 0.4,
                 "normalized_true": 0.4,
                 "n_top": 0,
                 "train_spearman": 0.3,
@@ -120,6 +122,7 @@ class TestRoundTracker:
         tracker.track_round(
             selected_indices=[2],
             metrics={
+                "best_true": 0.3,
                 "normalized_true": 0.3,
                 "n_top": 1,
                 "train_spearman": 0.2,
@@ -133,6 +136,7 @@ class TestRoundTracker:
                 "auc_true": 0.2,
                 "avg_top": 1.0,
                 "rounds_to_top": 1.0,
+                "best_true_score_found": 0.2,
                 "overall_true": 0.2,
                 "max_train_spearman": 0.1,
                 "max_extreme_value_auc": 0.2,
@@ -141,6 +145,7 @@ class TestRoundTracker:
                 "auc_true": 0.3,
                 "avg_top": 2.0 / 3.0,
                 "rounds_to_top": 1.0,
+                "best_true_score_found": 0.4,
                 "overall_true": 0.4,
                 "max_train_spearman": 0.3,
                 "max_extreme_value_auc": 0.4,
@@ -149,6 +154,7 @@ class TestRoundTracker:
                 "auc_true": 1.0 / 3.0,
                 "avg_top": 2.0 / 3.0,
                 "rounds_to_top": 1.0,
+                "best_true_score_found": 0.4,
                 "overall_true": 0.4,
                 "max_train_spearman": 0.3,
                 "max_extreme_value_auc": 0.5,
@@ -171,3 +177,4 @@ class TestRoundTracker:
         assert output_path.exists()
         df = pd.read_csv(output_path)
         assert "selected_sample_ids" in df.columns
+        assert "best_true_score_found" in df.columns

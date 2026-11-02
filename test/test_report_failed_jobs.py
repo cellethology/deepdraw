@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from job_sub import report_failed_jobs as rfj
+from benchmarks import report_failed_jobs as rfj
 
 
 def _touch(path: Path, content: str = "x") -> None:

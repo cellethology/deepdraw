@@ -5,8 +5,11 @@ import pandas as pd
 import pytest
 
 import deepdraw.embeddings.alphagenome as alphagenome
+from deepdraw import cli
 from deepdraw.embeddings.alphagenome import (
     embed_design_pool,
+    embed_fasta,
+    embed_sequences,
     normalize_dna_sequence,
     read_design_pool_sequences,
     read_fasta_sequences,
@@ -47,7 +50,10 @@ def test_normalize_dna_sequence_rejects_invalid_characters():
         normalize_dna_sequence("ATGX", sample_id="bad")
 
 
-def test_embed_design_pool_writes_npz_with_fake_runtime(monkeypatch, tmp_path):
+@pytest.mark.parametrize(
+    "entry_point", ["pool", "fasta", "sequences", "cli", "explicit_128"]
+)
+def test_embedding_defaults_and_resolution_override(monkeypatch, tmp_path, entry_point):
     pool_path = tmp_path / "designs.csv"
     output_path = tmp_path / "embeddings.npz"
     pd.DataFrame(
@@ -63,13 +69,17 @@ def test_embed_design_pool_writes_npz_with_fake_runtime(monkeypatch, tmp_path):
 
     class FakeForward:
         def apply(self, params, state, rng, onehot, organism_index, metadata):
+            assert np.all(organism_index == 0)
             batch_size, padded_len, _ = onehot.shape
+            fine = np.full((batch_size, padded_len, 3), 1000.0, dtype=np.float32)
+            fine[:, :8, :] = 1.0
+            coarse = np.full(
+                (batch_size, padded_len // 128, 3), 1000.0, dtype=np.float32
+            )
+            coarse[:, :1, :] = 3.0
             embeddings = SimpleNamespace(
-                embeddings_1bp=np.ones((batch_size, padded_len, 3), dtype=np.float32),
-                embeddings_128bp=np.ones(
-                    (batch_size, padded_len // 128, 3),
-                    dtype=np.float32,
-                ),
+                embeddings_1bp=fine,
+                embeddings_128bp=coarse,
             )
             return embeddings, {}
 
@@ -96,17 +106,43 @@ def test_embed_design_pool_writes_npz_with_fake_runtime(monkeypatch, tmp_path):
         lambda runtime, **kwargs: FakeForward(),
     )
 
-    embed_design_pool(
-        pool_csv=pool_path,
-        output_path=output_path,
-        sequence_column="sequence",
-        id_column="variant_id",
-        resolution=128,
-        pooling="mean",
-    )
+    if entry_point == "fasta":
+        fasta = tmp_path / "designs.fasta"
+        fasta.write_text(">v1\nATGCATGC\n>v2\nATGCNNNN\n")
+        embed_fasta(fasta_path=fasta, output_path=output_path)
+    elif entry_point == "sequences":
+        records = read_design_pool_sequences(pool_path, id_column="variant_id")
+        embed_sequences(records, output_path=output_path)
+    elif entry_point == "cli":
+        cli.main(
+            [
+                "embed-alphagenome",
+                "--pool-csv",
+                str(pool_path),
+                "--id-column",
+                "variant_id",
+                "--output",
+                str(output_path),
+            ]
+        )
+    else:
+        options = {"resolution": 128} if entry_point == "explicit_128" else {}
+        embed_design_pool(
+            pool_csv=pool_path,
+            output_path=output_path,
+            sequence_column="sequence",
+            id_column="variant_id",
+            **options,
+        )
 
     data = np.load(output_path, allow_pickle=True)
     assert data["ids"].tolist() == ["v1", "v2"]
     assert data["embeddings"].shape == (2, 3)
     assert data["pooling"].item() == "mean"
-    assert data["resolution"].item() == 128
+    assert data["species"].item() == "human"
+    assert data["model"].item() == "alphagenome-all_folds"
+    assert data["resolution"].item() == (128 if entry_point == "explicit_128" else 1)
+    np.testing.assert_array_equal(
+        data["embeddings"],
+        np.full((2, 3), 3.0 if entry_point == "explicit_128" else 1.0),
+    )

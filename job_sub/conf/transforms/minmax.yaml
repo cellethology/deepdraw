@@ -1,4 +1,0 @@
-# job_sub/conf/transforms/minmax.yaml
-steps:
-  - id: minmax
-    _target_: sklearn.preprocessing.MinMaxScaler

@@ -1,7 +1,0 @@
-# BoTorch GP regressor (SingleTaskGP wrapper)
-_target_: core.botorch_models.BoTorchGPRegressor
-device: auto
-dtype: float64
-ard: true
-kernel: rbf
-noise_constraint: 1e-4

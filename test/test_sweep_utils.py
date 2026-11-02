@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from job_sub.utils import sweep_utils
+from benchmarks.utils import sweep_utils
 
 
 def test_collect_user_overrides_drops_only_multirun_flags() -> None:

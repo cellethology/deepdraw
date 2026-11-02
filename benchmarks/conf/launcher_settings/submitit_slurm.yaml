@@ -1,0 +1,6 @@
+timeout_min: 1440
+partition: null
+cpus_per_task: 1
+qos: null
+mem_per_cpu: 30GB
+submitit_folder: slurm_logs

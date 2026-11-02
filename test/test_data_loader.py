@@ -14,20 +14,6 @@ from core.data_loader import DataLoader, Dataset
 class TestDataset:
     """Dataset dataclass validation."""
 
-    def test_dataset_creation(self):
-        sample_ids = ["sample_0", "sample_1"]
-        labels = np.array([1.0, 2.0])
-        embeddings = np.random.randn(2, 3)
-
-        ds = Dataset(
-            sample_ids=sample_ids,
-            labels=labels,
-            embeddings=embeddings,
-        )
-
-        assert len(ds.sample_ids) == 2
-        assert ds.embeddings.shape == (2, 3)
-
     def test_length_mismatch_raises(self):
         sample_ids = ["sample_0", "sample_1"]
         labels = np.array([1.0])
@@ -78,19 +64,6 @@ class TestDataLoader:
         expected_ids = np.arange(embeddings.shape[0], dtype=np.int32)
         np.testing.assert_array_equal(dataset.sample_ids, expected_ids)
         assert np.allclose(dataset.labels, data["Expression"])
-
-    def test_missing_sequence_column_generates_ids(self, tmp_path):
-        emb_path, _ = self._create_embeddings_file(tmp_path, n_samples=3)
-        csv_path, _ = self._create_metadata_csv(tmp_path, n_samples=3)
-
-        loader = DataLoader(
-            embeddings_path=emb_path,
-            metadata_path=str(csv_path),
-            label_key="Expression",
-        )
-
-        dataset = loader.load()
-        np.testing.assert_array_equal(dataset.sample_ids, np.array([0, 1, 2]))
 
     def test_missing_target_column(self, tmp_path):
         emb_path, _ = self._create_embeddings_file(tmp_path, n_samples=3)

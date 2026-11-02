@@ -1,4 +1,0 @@
-_target_: core.query_strategies.BoTorchAcquisition
-acquisition: ts
-maximize: true
-discrete_optimizer: exact

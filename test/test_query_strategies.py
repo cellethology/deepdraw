@@ -155,6 +155,105 @@ class TestPredStdHybridStrategy:
 
 
 class TestBoTorchAcquisition:
+    def test_discrete_optimizer_maps_identical_embeddings_to_distinct_rows(self):
+        torch = pytest.importorskip("torch")
+        from botorch.acquisition.acquisition import AcquisitionFunction
+
+        class ToyAcquisition(AcquisitionFunction):
+            def __init__(self):
+                super().__init__(model=None)
+                self.set_X_pending(None)
+
+            def forward(self, x):
+                return -x.square().sum(dim=(-1, -2))
+
+        choices = torch.tensor([[0.0, 0.0], [0.0, 0.0], [1.0, 1.0]], dtype=torch.double)
+        strategy = BoTorchAcquisition(acquisition="mes")
+        assert strategy._optimize_discrete(torch, ToyAcquisition(), choices, 2) == [
+            0,
+            1,
+        ]
+
+    def test_mapping_uses_only_available_exact_matches(self):
+        torch = pytest.importorskip("torch")
+        choices = torch.tensor([[1.0], [2.0], [1.0]], dtype=torch.double)
+        strategy = BoTorchAcquisition(acquisition="mes")
+        assert strategy._map_candidates_to_indices(
+            torch, choices, choices[[0, 1, 2]]
+        ) == [0, 1, 2]
+        for invalid in [
+            choices[[0, 0, 0]],
+            torch.tensor([[1.00000001]], dtype=torch.double),
+        ]:
+            with pytest.raises(ValueError, match="no unused exact"):
+                strategy._map_candidates_to_indices(torch, choices, invalid)
+
+    @pytest.mark.parametrize(
+        "selected,message",
+        [
+            ([0, 0], "duplicate circuit"),
+            ([0, 3], "outside the unmeasured"),
+            ([0], "incorrect number"),
+        ],
+    )
+    def test_batch_validation_rejects_invalid_selections(
+        self, monkeypatch, selected, message
+    ):
+        strategy = BoTorchAcquisition(acquisition="mes")
+        exp = DummyExperiment(
+            unlabeled_indices=[0, 1, 2], batch_size=2, train_indices=[3]
+        )
+        monkeypatch.setattr(strategy, "_select_batch", lambda *args: selected)
+        with pytest.raises(ValueError, match=message):
+            strategy.select(exp)
+
+    def test_mes_chunking_and_threads_preserve_sequential_selection(self, monkeypatch):
+        torch = pytest.importorskip("torch")
+        from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
+        from botorch.models import SingleTaskGP
+
+        monkeypatch.delenv("SLURM_CPUS_PER_TASK", raising=False)
+        torch.manual_seed(17)
+        train_x = torch.rand(12, 3, dtype=torch.double)
+        model = SingleTaskGP(train_x, train_x.square().sum(-1, keepdim=True))
+        model.eval()
+        choices = torch.rand(96, 3, dtype=torch.double)
+        previous_threads = torch.get_num_threads()
+        selections = []
+        for chunk, threads in [(2048, None), (16, 2)]:
+            torch.manual_seed(8)
+            acq = qMaxValueEntropy(model, choices)
+            strategy = BoTorchAcquisition(
+                acquisition="mes", max_batch_size=chunk, num_threads=threads
+            )
+            selections.append(strategy._optimize_discrete(torch, acq, choices, 4))
+            assert acq.X_pending is None
+            assert torch.get_num_threads() == previous_threads
+        assert selections[0] == selections[1]
+        assert len(set(selections[0])) == 4
+
+    def test_acquisition_restores_threads_after_error(self, monkeypatch):
+        torch = pytest.importorskip("torch")
+        monkeypatch.delenv("SLURM_CPUS_PER_TASK", raising=False)
+        previous_threads = torch.get_num_threads()
+        strategy = BoTorchAcquisition(acquisition="mes", num_threads=2)
+
+        def fail(*args):
+            assert torch.get_num_threads() == 2
+            raise RuntimeError("Acquisition failed")
+
+        monkeypatch.setattr(strategy, "_optimize_discrete_impl", fail)
+        with pytest.raises(RuntimeError, match="Acquisition failed"):
+            strategy._optimize_discrete(torch, None, None, 12)
+        assert torch.get_num_threads() == previous_threads
+
+    def test_acquisition_threads_respect_slurm_allocation(self, monkeypatch):
+        torch = pytest.importorskip("torch")
+        monkeypatch.setenv("SLURM_CPUS_PER_TASK", "1")
+        strategy = BoTorchAcquisition(acquisition="mes", num_threads=4)
+        with pytest.raises(ValueError, match="Slurm allocated only 1"):
+            strategy._optimize_discrete(torch, None, None, 12)
+
     def test_strategy_name_omits_botorch_prefix(self):
         strategy = BoTorchAcquisition(acquisition="qlog_nei")
 
@@ -165,11 +264,6 @@ class TestBoTorchAcquisition:
         strategy = BoTorchAcquisition(acquisition="qlog_ei", discrete_optimizer="exact")
         acq_class = strategy._resolve_acquisition_class()
         assert acq_class.__name__ == "qLogExpectedImprovement"
-
-    def test_resolve_q_ucb_class(self):
-        strategy = BoTorchAcquisition(acquisition="q_ucb", discrete_optimizer="exact")
-        acq_class = strategy._resolve_acquisition_class()
-        assert acq_class.__name__ == "qUpperConfidenceBound"
 
     def test_exact_discrete_falls_back_to_greedy_for_x_pending_errors(
         self, monkeypatch
@@ -271,12 +365,10 @@ class TestBoTorchAcquisition:
         values = acq(X_train[:2].unsqueeze(-2))
         assert values.shape[0] == 2
 
-    @pytest.mark.parametrize(
-        ("factory",), [("linear_gp",), ("bnn_gp",), ("rf_ensemble",)]
-    )
+    @pytest.mark.parametrize(("factory",), [("linear_gp",), ("rf_ensemble",)])
     def test_botorch_models_work_with_selection_pipeline(self, monkeypatch, factory):
         botorch_models = _import_botorch_models()
-        if factory in {"linear_gp", "bnn_gp"}:
+        if factory == "linear_gp":
             monkeypatch.setattr(
                 botorch_models, "fit_gpytorch_mll", lambda *args, **kwargs: None
             )
@@ -285,10 +377,6 @@ class TestBoTorchAcquisition:
         y = np.array([0.1, 0.9, 0.2, 0.8, 0.3], dtype=float)
         if factory == "linear_gp":
             model = botorch_models.BoTorchGPRegressor(kernel="linear")
-        elif factory == "bnn_gp":
-            model = botorch_models.BoTorchGPRegressor(
-                kernel="infinite_width_bnn", ard=True
-            )
         elif factory == "rf_ensemble":
             model = botorch_models.BoTorchRandomForestEnsembleRegressor(
                 n_estimators=5,

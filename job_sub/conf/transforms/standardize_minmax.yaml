@@ -1,6 +1,0 @@
-# job_sub/conf/transforms/standardize_minmax.yaml
-steps:
-  - id: scaler
-    _target_: sklearn.preprocessing.StandardScaler
-  - id: minmax
-    _target_: sklearn.preprocessing.MinMaxScaler

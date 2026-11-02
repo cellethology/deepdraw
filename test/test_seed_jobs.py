@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from omegaconf import OmegaConf
 
-from job_sub.utils import seed_jobs
+from benchmarks.utils import seed_jobs
 
 
 def test_generate_seed_values_uses_start_and_count() -> None:
