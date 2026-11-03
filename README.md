@@ -38,17 +38,14 @@ The package name is `deepdraw-opt`; the command and Python import are `deepdraw`
 
 The example includes 60 designs, synthetic embeddings, and measurements matching the default first batch. It requires no model download.
 
-Download the repository or clone it, then run the example from its root:
+Create and run the bundled example in any working directory:
 
 ```bash
-git clone https://github.com/cellethology/deepdraw.git
-cd deepdraw
-```
+deepdraw example
 
-```bash
 deepdraw init \
-  --pool-csv examples/deepdraw_dummy/design_pool.csv \
-  --embeddings examples/deepdraw_dummy/embeddings.npz \
+  --pool-csv deepdraw_dummy/design_pool.csv \
+  --embeddings deepdraw_dummy/embeddings.npz \
   --sequence-column sequence \
   --id-column variant_id \
   --stopping-rule threshold \
@@ -56,7 +53,7 @@ deepdraw init \
 
 deepdraw suggest \
   --run-dir deepdraw_run \
-  --measurements examples/deepdraw_dummy/measurements.csv \
+  --measurements deepdraw_dummy/measurements.csv \
   --label-column Expression
 ```
 
@@ -162,8 +159,8 @@ Fixed-threshold stopping, used above, stops when a measured score meets or excee
 
 ```bash
 deepdraw init \
-  --pool-csv examples/deepdraw_dummy/design_pool.csv \
-  --embeddings examples/deepdraw_dummy/embeddings.npz \
+  --pool-csv deepdraw_dummy/design_pool.csv \
+  --embeddings deepdraw_dummy/embeddings.npz \
   --sequence-column sequence \
   --id-column variant_id \
   --output-dir runs/dummy_ei \
@@ -172,7 +169,7 @@ deepdraw init \
 
 deepdraw suggest \
   --run-dir runs/dummy_ei \
-  --measurements examples/deepdraw_dummy/measurements.csv \
+  --measurements deepdraw_dummy/measurements.csv \
   --label-column Expression
 ```
 
@@ -239,6 +236,7 @@ pytest
 Command-specific help:
 
 ```bash
+deepdraw example --help
 deepdraw init --help
 deepdraw suggest --help
 deepdraw pca --help

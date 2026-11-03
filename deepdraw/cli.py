@@ -8,6 +8,7 @@ from pathlib import Path
 
 from deepdraw.embeddings.alphagenome import embed_design_pool, embed_fasta
 from deepdraw.embeddings.pca import reduce_embeddings_pca
+from deepdraw.examples import write_dummy_example
 from deepdraw.workflow import initialize_run, suggest_next_batch
 
 _LOG_LEVEL_CHOICES = ("DEBUG", "INFO", "WARNING", "ERROR")
@@ -29,6 +30,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_log_level_argument(parser)
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    example_parser = subparsers.add_parser(
+        "example", help="Copy the bundled dummy example into a new directory."
+    )
+    _add_log_level_argument(example_parser)
+    example_parser.add_argument(
+        "--output-dir", default=Path("deepdraw_dummy"), type=Path
+    )
 
     init_parser = subparsers.add_parser(
         "init",
@@ -225,6 +234,11 @@ def main(argv: list[str] | None = None) -> None:
 
 
 def _run_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    if args.command == "example":
+        output_dir = write_dummy_example(args.output_dir)
+        print(f"Wrote Deepdraw example: {output_dir}")
+        return
+
     if args.command == "init":
         state = initialize_run(
             pool_csv=args.pool_csv,

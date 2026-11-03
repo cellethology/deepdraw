@@ -6,6 +6,21 @@ import pytest
 from deepdraw import cli
 
 
+def test_cli_example_preserves_existing_directory(tmp_path, capsys):
+    output_dir = tmp_path / "example"
+    output_dir.mkdir()
+    original = output_dir / "design_pool.csv"
+    original.write_text("user data\n")
+
+    with pytest.raises(SystemExit) as error:
+        cli.main(["example", "--output-dir", str(output_dir)])
+
+    assert error.value.code == 1
+    assert original.read_text() == "user data\n"
+    assert list(output_dir.iterdir()) == [original]
+    assert "Error:" in capsys.readouterr().err
+
+
 def test_cli_validation_error_omits_traceback(monkeypatch, capsys):
     def fail_suggest(**kwargs):
         raise ValueError("Measurements are missing labels.")

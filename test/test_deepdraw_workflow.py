@@ -7,7 +7,7 @@ import pytest
 from sklearn.ensemble import GradientBoostingRegressor
 
 from core.botorch_models import BoTorchGPRegressor
-from deepdraw import workflow
+from deepdraw import cli, workflow
 from deepdraw.workflow import (
     _training_indices_for_state,
     initialize_run,
@@ -253,8 +253,9 @@ def test_random_query_strategy_skips_predictor_training(tmp_path, monkeypatch):
     assert len(updated_state.rounds) == 2
 
 
-def test_dummy_example_files_drive_workflow(tmp_path):
-    example_dir = Path(__file__).resolve().parents[1] / "examples" / "deepdraw_dummy"
+def test_exported_dummy_example_drives_workflow(tmp_path):
+    example_dir = tmp_path / "example"
+    cli.main(["example", "--output-dir", str(example_dir)])
     run_dir = tmp_path / "dummy_run"
 
     state = initialize_run(
