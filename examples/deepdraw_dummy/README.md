@@ -5,8 +5,10 @@ This example provides 60 designs, synthetic embeddings, and measurements for the
 ## Select and measure two batches
 
 ```bash
+# Copy the example data.
 deepdraw example
 
+# Select the first batch.
 deepdraw init \
   --pool-csv deepdraw_dummy/design_pool.csv \
   --embeddings deepdraw_dummy/embeddings.npz \
@@ -15,17 +17,19 @@ deepdraw init \
   --stopping-rule threshold \
   --phenotype-threshold 19
 
+# Add measurements and select the next batch.
 deepdraw suggest \
   --run-dir deepdraw_run \
   --measurements deepdraw_dummy/measurements.csv \
   --label-column Expression
 ```
 
-The first command writes `deepdraw_run/round_000_to_measure.csv`. The supplied measurements match that batch; the second command trains the default GP and writes `round_001_to_measure.csv` using MES.
+`init` writes `deepdraw_run/round_000_to_measure.csv`. The supplied measurements match that batch; `suggest` trains the default GP and writes `round_001_to_measure.csv` using MES.
 
 To simulate measuring the second batch, create a cumulative measurement file with the same synthetic score formula used for the bundled data:
 
 ```bash
+# Simulate the next measurements.
 python - <<'PYTHON'
 import pandas as pd
 
@@ -40,6 +44,7 @@ pd.concat([previous, batch[previous.columns]], ignore_index=True).to_csv(
 )
 PYTHON
 
+# Update the run and check stopping.
 deepdraw suggest \
   --run-dir deepdraw_run \
   --measurements deepdraw_run/measurements.csv \
@@ -53,5 +58,6 @@ The bundled measurements correspond to the default initial strategy, batch size,
 ## Regenerate the inputs
 
 ```bash
+# Regenerate the example inputs.
 python deepdraw_dummy/make_dummy_inputs.py
 ```
