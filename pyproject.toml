@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deepdraw-opt"
-version = "0.1.1"
+version = "0.1.2"
 description = "Active learning for genetic circuit design"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,6 +36,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+alphagenome = [
+    "alphagenome>=0.10.0",
+    "dm-haiku>=0.0.16",
+    "huggingface-hub>=1.0",
+    "jax>=0.6.0",
+    "pandas<3",
+    "socksio>=1.0",
+]
 analysis = [
     "openpyxl>=3.1.5",
     "pyyaml>=6.0.2",

@@ -2,7 +2,13 @@
 
 These optional tools evaluate Deepdraw on datasets whose labels are already known. For new experimental campaigns, use the [main workflow](../README.md).
 
-Run the commands below from a source checkout's repository root. The `analysis` extra supplies the benchmark analysis dependencies; Slurm commands also need the `cluster` extra.
+Run the commands below from a source checkout's repository root. Install the benchmark dependencies first:
+
+```bash
+python -m pip install -e ".[analysis]"
+```
+
+For Slurm, use `python -m pip install -e ".[analysis,cluster]"`.
 
 ## Prepare the data
 
@@ -25,7 +31,7 @@ The optional subset file contains one integer ID per line. Use an absolute path 
 For an embedding file named `my_embeddings.npz` and a score column named `score`:
 
 ```bash
-uv run --extra analysis python -m benchmarks.run_config \
+python -m benchmarks.run_config \
   datasets_file=/absolute/path/datasets.yaml \
   embedding_model=my_embeddings \
   al_settings.label_key=score \
@@ -43,7 +49,7 @@ The default batch size is 12. `al_settings.max_rounds` controls query batches af
 This local sweep compares three query strategies across all datasets in the YAML, using one seed:
 
 ```bash
-uv run --extra analysis python -m benchmarks.run_config --multirun \
+python -m benchmarks.run_config --multirun \
   datasets_file=/absolute/path/datasets.yaml \
   embedding_model=my_embeddings \
   al_settings.label_key=score \
@@ -61,7 +67,7 @@ Omit `al_settings.seed=0` to use the seed range configured by `num_seeds_per_job
 Choose your cluster's partition and resource settings:
 
 ```bash
-uv run --extra analysis --extra cluster python -m benchmarks.run_config --multirun \
+python -m benchmarks.run_config --multirun \
   datasets_file=/absolute/path/datasets.yaml \
   embedding_model=my_embeddings \
   al_settings.label_key=score \
@@ -90,10 +96,10 @@ Each experiment directory contains `results.csv` and `summary.json`. Noise simul
 For the comparison sweep above:
 
 ```bash
-uv run --extra analysis python -m benchmarks.aggregate_summaries \
+python -m benchmarks.aggregate_summaries \
   --sweep-dir results/comparison
 
-uv run --extra analysis python -m benchmarks.report_failed_jobs \
+python -m benchmarks.report_failed_jobs \
   --sweep-dir results/comparison
 ```
 

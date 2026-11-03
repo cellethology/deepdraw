@@ -5,36 +5,48 @@
 
 Deepdraw selects batches of genetic circuits to measure using sequence embeddings and accumulated experimental results. Its default search combines ProbCover initial selection, Gaussian-process prediction, and maximum-value entropy search (MES).
 
-The active-learning loop runs on CPU. AlphaGenome embedding generation has a separate optional environment. For retrospective evaluation on fully measured datasets, see [benchmarks](https://github.com/cellethology/deepdraw/blob/main/benchmarks/README.md).
+The active-learning loop runs on CPU. AlphaGenome embedding generation is optional. For retrospective evaluation on fully measured datasets, see [benchmarks](https://github.com/cellethology/deepdraw/blob/main/benchmarks/README.md).
 
 ## Install
 
-Install with Python 3.10 or later:
+Use Python 3.11 for the full installation. On Linux or macOS, create and activate an environment:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+```
+
+Install Deepdraw with AlphaGenome embedding generation:
+
+```bash
+python -m pip install "deepdraw-opt[alphagenome]" \
+  "https://github.com/google-deepmind/alphagenome_research/archive/dad09dd11a480fb8c16ae703a606f55a6e3e968b.zip"
+```
+
+Include both arguments; the second installs Google's research library.
+
+To skip AlphaGenome and use existing embeddings, install only Deepdraw (Python 3.10 or later):
 
 ```bash
 python -m pip install deepdraw-opt
-deepdraw --help
 ```
 
-The package name is `deepdraw-opt`; the command and Python import are `deepdraw`.
-
-For the bundled example, optional AlphaGenome environment, and development, install Git and [uv](https://docs.astral.sh/uv/), then clone the repository:
-
-```bash
-git clone https://github.com/cellethology/deepdraw.git
-cd deepdraw
-uv sync --python 3.10
-uv run deepdraw --help
-```
-
-The commands below use `uv run` from the repository root. With a PyPI installation, invoke `deepdraw` directly instead of `uv run deepdraw`.
+The package name is `deepdraw-opt`; the command and Python import are `deepdraw`. Check the installation with `deepdraw --help`. Your own data can be used without a repository checkout.
 
 ## Try the dummy example
 
 The example includes 60 designs, synthetic embeddings, and measurements matching the default first batch. It requires no model download.
 
+Download the repository or clone it, then run the example from its root:
+
 ```bash
-uv run deepdraw init \
+git clone https://github.com/cellethology/deepdraw.git
+cd deepdraw
+```
+
+```bash
+deepdraw init \
   --pool-csv examples/deepdraw_dummy/design_pool.csv \
   --embeddings examples/deepdraw_dummy/embeddings.npz \
   --sequence-column sequence \
@@ -42,7 +54,7 @@ uv run deepdraw init \
   --stopping-rule threshold \
   --phenotype-threshold 19
 
-uv run deepdraw suggest \
+deepdraw suggest \
   --run-dir deepdraw_run \
   --measurements examples/deepdraw_dummy/measurements.csv \
   --label-column Expression
@@ -77,7 +89,7 @@ You can use embeddings from another model or generate them with the [AlphaGenome
 ### 2. Select the first batch
 
 ```bash
-uv run deepdraw init \
+deepdraw init \
   --pool-csv designs.csv \
   --embeddings embeddings.npz \
   --sequence-column sequence \
@@ -115,7 +127,7 @@ variant_003,5.11
 Use the IDs actually recommended for your run. Include every previously recommended design; additional measured designs from the pool can also be included.
 
 ```bash
-uv run deepdraw suggest \
+deepdraw suggest \
   --run-dir runs/my_project \
   --measurements measurements.csv \
   --label-column Expression
@@ -149,7 +161,7 @@ The default target transform applies `log(1 + score)` followed by standardizatio
 Fixed-threshold stopping, used above, stops when a measured score meets or exceeds `--phenotype-threshold`. For an adaptive EI example using the bundled data:
 
 ```bash
-uv run deepdraw init \
+deepdraw init \
   --pool-csv examples/deepdraw_dummy/design_pool.csv \
   --embeddings examples/deepdraw_dummy/embeddings.npz \
   --sequence-column sequence \
@@ -158,7 +170,7 @@ uv run deepdraw init \
   --stopping-rule ei \
   --epsilon 0.01
 
-uv run deepdraw suggest \
+deepdraw suggest \
   --run-dir runs/dummy_ei \
   --measurements examples/deepdraw_dummy/measurements.csv \
   --label-column Expression
@@ -170,22 +182,24 @@ Omitting the stopping options disables threshold and EI stopping. All runs finis
 
 ## Generate AlphaGenome embeddings
 
-Skip this section if you already have embeddings. The isolated environment uses Python 3.11:
-
-```bash
-uv sync --project envs/alphagenome --python 3.11
-```
+Use the full installation above. If you already have embeddings, skip this section.
 
 Accept access to `google/alphagenome-all-folds` on Hugging Face, then authenticate:
 
 ```bash
-uv run --project envs/alphagenome hf auth login
+hf auth login
 ```
 
-An `HF_TOKEN` environment variable is also supported. The embedding environment supports CUDA GPUs on Linux and CPU execution; use CPU on macOS. Start with a batch size of 1.
+An `HF_TOKEN` environment variable is also supported. For an NVIDIA GPU on Linux, install CUDA support:
 
 ```bash
-uv run --project envs/alphagenome deepdraw embed-alphagenome \
+python -m pip install --upgrade "jax[cuda12]>=0.6.0"
+```
+
+CPU execution is also supported; use CPU on macOS. Start with a batch size of 1.
+
+```bash
+deepdraw embed-alphagenome \
   --pool-csv designs.csv \
   --sequence-column sequence \
   --id-column variant_id \
@@ -196,13 +210,13 @@ uv run --project envs/alphagenome deepdraw embed-alphagenome \
   --pooling mean \
   --batch-size 1
 
-uv run deepdraw pca \
+deepdraw pca \
   --input embeddings_alphagenome_raw.npz \
   --output embeddings.npz \
   --selection-method kneedle
 ```
 
-Use the resulting `embeddings.npz` with `deepdraw init`. PCA runs in the main Deepdraw environment.
+Use the resulting `embeddings.npz` with `deepdraw init`.
 
 ## Repository layout and development
 
@@ -212,20 +226,21 @@ Use the resulting `embeddings.npz` with `deepdraw init`. PCA runs in the main De
 | [core/](https://github.com/cellethology/deepdraw/blob/main/core/README.md) | Models, selection strategies, training, and stopping rules. |
 | [examples/deepdraw_dummy/](https://github.com/cellethology/deepdraw/blob/main/examples/deepdraw_dummy/README.md) | Runnable example with synthetic data. |
 | [benchmarks/](https://github.com/cellethology/deepdraw/blob/main/benchmarks/README.md) | Retrospective evaluation, noise simulation, and Hydra/Slurm tools. |
-| [envs/alphagenome/](https://github.com/cellethology/deepdraw/tree/main/envs/alphagenome) | Optional AlphaGenome environment. |
+| [envs/alphagenome/](https://github.com/cellethology/deepdraw/tree/main/envs/alphagenome) | Optional uv environment for development. |
 | [test/](https://github.com/cellethology/deepdraw/tree/main/test) | Unit and workflow tests. |
 
-Install development dependencies and run the tests:
+From a source checkout, install development dependencies and run the tests:
 
 ```bash
-uv run --group dev pytest
+python -m pip install -e ".[analysis]" --group dev
+pytest
 ```
 
 Command-specific help:
 
 ```bash
-uv run deepdraw init --help
-uv run deepdraw suggest --help
-uv run deepdraw pca --help
-uv run --project envs/alphagenome deepdraw embed-alphagenome --help
+deepdraw init --help
+deepdraw suggest --help
+deepdraw pca --help
+deepdraw embed-alphagenome --help
 ```

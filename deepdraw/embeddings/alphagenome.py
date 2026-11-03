@@ -12,6 +12,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+_INSTALL_COMMAND = (
+    'python -m pip install "deepdraw-opt[alphagenome]" '
+    '"https://github.com/google-deepmind/alphagenome_research/archive/'
+    'dad09dd11a480fb8c16ae703a606f55a6e3e968b.zip"'
+)
+
 logger = logging.getLogger(__name__)
 
 VALID_DNA_CHARS = set("ACGTRYSWKMBDHVN")
@@ -389,10 +395,9 @@ def _load_alphagenome_runtime() -> _AlphaGenomeRuntime:
         from alphagenome_research.model.metadata import metadata as metadata_lib
     except ImportError as exc:
         raise RuntimeError(
-            "AlphaGenome embedding extraction needs the separate AlphaGenome "
-            "runtime. Create it with "
-            "`uv sync --project envs/alphagenome --python 3.11`, then run "
-            "`uv run --project envs/alphagenome deepdraw embed-alphagenome ...`."
+            "AlphaGenome embedding extraction needs its optional dependencies. "
+            f"Install them in a Python 3.11 environment with `{_INSTALL_COMMAND}`, "
+            "then run `deepdraw embed-alphagenome ...`."
         ) from exc
 
     return _AlphaGenomeRuntime(
@@ -425,7 +430,7 @@ def _create_model_from_huggingface(
         raise RuntimeError(
             f"Could not download or load {repo_id}. AlphaGenome model weights are "
             "gated on Hugging Face; accept access to the model and authenticate "
-            "with `uv run --project envs/alphagenome hf auth login` or "
+            "with `hf auth login` or "
             "set HF_TOKEN. If you are running offline, make sure the model is "
             "already present in the Hugging Face cache."
         ) from exc
