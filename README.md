@@ -41,8 +41,10 @@ The example includes 60 designs, synthetic embeddings, and measurements matching
 Create and run the bundled example in any working directory:
 
 ```bash
+# Copy the example data.
 deepdraw example
 
+# Select the first batch.
 deepdraw init \
   --pool-csv deepdraw_dummy/design_pool.csv \
   --embeddings deepdraw_dummy/embeddings.npz \
@@ -51,6 +53,7 @@ deepdraw init \
   --stopping-rule threshold \
   --phenotype-threshold 19
 
+# Add measurements and select the next batch.
 deepdraw suggest \
   --run-dir deepdraw_run \
   --measurements deepdraw_dummy/measurements.csv \
@@ -158,6 +161,7 @@ The default target transform applies `log(1 + score)` followed by standardizatio
 Fixed-threshold stopping, used above, stops when a measured score meets or exceeds `--phenotype-threshold`. For an adaptive EI example using the bundled data:
 
 ```bash
+# Start a run with EI stopping.
 deepdraw init \
   --pool-csv deepdraw_dummy/design_pool.csv \
   --embeddings deepdraw_dummy/embeddings.npz \
@@ -167,6 +171,7 @@ deepdraw init \
   --stopping-rule ei \
   --epsilon 0.01
 
+# Add measurements and check EI stopping.
 deepdraw suggest \
   --run-dir runs/dummy_ei \
   --measurements deepdraw_dummy/measurements.csv \
