@@ -227,7 +227,7 @@ Use the resulting `embeddings.npz` with `deepdraw init`.
 | [deepdraw/](https://github.com/cellethology/deepdraw/tree/main/deepdraw) | CLI, experimental workflow, embedding tools, and shared presets. |
 | [core/](https://github.com/cellethology/deepdraw/blob/main/core/README.md) | Models, selection strategies, training, and stopping rules. |
 | [examples/deepdraw_dummy/](https://github.com/cellethology/deepdraw/blob/main/examples/deepdraw_dummy/README.md) | Runnable example with synthetic data. |
-| [benchmarks/](https://github.com/cellethology/deepdraw/blob/main/benchmarks/README.md) | Retrospective evaluation, noise simulation, and Hydra/Slurm tools. |
+| [benchmarks/](https://github.com/cellethology/deepdraw/blob/main/benchmarks/README.md) | Retrospective evaluation, comparison methods, noise simulation, and Hydra/Slurm tools. |
 | [envs/alphagenome/](https://github.com/cellethology/deepdraw/tree/main/envs/alphagenome) | Optional uv environment for development. |
 | [test/](https://github.com/cellethology/deepdraw/tree/main/test) | Unit and workflow tests. |
 

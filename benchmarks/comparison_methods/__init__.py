@@ -1,0 +1,1 @@
+"""Finite-pool comparison methods."""

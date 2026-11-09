@@ -2,6 +2,8 @@
 
 These optional tools evaluate Deepdraw on datasets whose labels are already known. For new experimental campaigns, use the [main workflow](../README.md).
 
+Implementations of the Merzbacher, Kobiela, Friedman, and Yin comparison methods are in [comparison_methods/](comparison_methods/README.md), with a separate environment and commands for the Zenodo data.
+
 Run the commands below from a source checkout's repository root. Install the benchmark dependencies first:
 
 ```bash
