@@ -1,135 +1,70 @@
-# Python
+# Local settings and hidden files
+.*
+AGENTS.md
+CLAUDE.md
+setting.json
+
+# Python and environments
 __pycache__/
 *.py[cod]
-*$py.class
 *.so
-.Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
-
-# Virtual Environment
 venv/
 env/
 ENV/
-.env
-.venv
-.venv*/
-env.bak/
-venv.bak/
 
-# IDE
-.idea/
-.vscode/
+# Editors and notebooks
 *.swp
 *.swo
-.DS_Store
-
-# Jupyter Notebook
-.ipynb_checkpoints
 *.ipynb
 
-# Testing
-.coverage
+# Test and documentation output
 htmlcov/
-.pytest_cache/
-.tox/
+docs/_build/
+site/
 
-# Distribution
-*.tar.gz
-*.zip
-
-# los and databases
+# Logs and generated results
 *.log
-*.sqlite
-*.db
-*.csv
-!examples/deepdraw_dummy/design_pool.csv
-!examples/deepdraw_dummy/measurements.csv
-*.pdf
-*.png
 *.err
 *.out
-
-# Model files and data
-*.h5
-*.pkl
-*.model
-*.pth
-*.7z
-*.safetensors
-multirun/*
-data/*
-data_new/*
-!data/scripts/*
-models/
-checkpoints/
+*.pdf
+*.png
+logs/
+slurm_logs/
+multirun/
+outputs/
 results/
 results_*/
 runs/
 deepdraw_run/
 wandb/
-data_assembly/
-data_analyze/
 
-# Environment management
-.python-version
-poetry.lock
-.ruff_cache/
+# Local data and models
+*.csv
+!examples/deepdraw_dummy/design_pool.csv
+!examples/deepdraw_dummy/measurements.csv
+*.sqlite
+*.db
+*.h5
+*.pkl
+*.model
+*.pth
+*.safetensors
+data/
+models/
+checkpoints/
 
-# Documentation
-docs/_build/
-site/
+# Archives
+*.tar.gz
+*.zip
+*.7z
 
-# Misc
-.DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-# run_experiments.py
-setting.json
-
-# dir
-data_new_deprecated/
-
-# logs
-logs
-multirun
-outputs
-logs_experiments
-log_test/*
-logs_test/*
-slurm_logs/
-
-
-# hidden directories
-.*
-
-# Local assistant settings and instructions
-.codex/
-.claude/
-AGENTS.md
-CLAUDE.md
-
-# local data
+# Local benchmark configuration and analysis
 **/test_local.yaml
 **/local_166k.yaml
 /benchmarks/datasets/
-
-# Local-only analysis / figure-generation scripts (notebooks, sensitivity-analysis
-# helpers, etc.). Anything dropped under this folder stays out of git.
 benchmarks/utils/analysis/
 /utils/
