@@ -1,0 +1,18 @@
+name: deepdraw-benchmarks
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - cxx-compiler
+  - pip
+  - pip:
+      - numpy==2.0.2
+      - pandas==2.3.3
+      - scipy==1.13.1
+      - scikit-learn==1.6.1
+      - hyperopt==0.2.7
+      - pymc==5.27.1
+      - pytensor==2.37.0
+      - arviz==0.22.0
+      - setuptools==80.9.0
+      - tensorflow==2.20.0
